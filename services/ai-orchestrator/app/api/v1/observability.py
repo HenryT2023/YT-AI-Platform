@@ -60,6 +60,16 @@ class ToolFailure(BaseModel):
     last_error: Optional[str] = None
 
 
+class FeedbackStats(BaseModel):
+    """反馈统计"""
+
+    total: int = 0
+    correction_count: int = 0
+    correction_rate: float = 0.0
+    resolution_rate: float = 0.0
+    top_issues: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 class MetricsSummary(BaseModel):
     """指标摘要"""
 
@@ -75,6 +85,7 @@ class MetricsSummary(BaseModel):
     policy_distribution: PolicyDistribution = Field(default_factory=PolicyDistribution)
     top_tool_failures: List[ToolFailure] = Field(default_factory=list)
     llm_stats: Dict[str, Any] = Field(default_factory=dict)
+    feedback_stats: FeedbackStats = Field(default_factory=FeedbackStats)
 
 
 # ==================
@@ -87,6 +98,7 @@ _metrics_store: Dict[str, Any] = {
     "cache_hits": 0,
     "cache_misses": 0,
     "tool_failures": {},
+    "feedbacks": [],  # 反馈记录
 }
 
 
@@ -128,6 +140,27 @@ def record_cache_hit(hit: bool):
         _metrics_store["cache_hits"] += 1
     else:
         _metrics_store["cache_misses"] += 1
+
+
+def record_feedback(
+    feedback_type: str,
+    severity: str,
+    resolved: bool = False,
+):
+    """记录反馈指标（供 FeedbackClient 调用）"""
+    _metrics_store["feedbacks"].append({
+        "timestamp": datetime.utcnow(),
+        "type": feedback_type,
+        "severity": severity,
+        "resolved": resolved,
+    })
+
+    # 只保留最近 24 小时的数据
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    _metrics_store["feedbacks"] = [
+        f for f in _metrics_store["feedbacks"]
+        if f["timestamp"] > cutoff
+    ]
 
 
 # ==================
@@ -362,6 +395,9 @@ async def get_metrics_summary(
     ]
     tool_failures.sort(key=lambda x: x.failure_count, reverse=True)
 
+    # 反馈统计
+    feedback_stats = _calculate_feedback_stats(minutes)
+
     return MetricsSummary(
         time_range_minutes=minutes,
         total_requests=total,
@@ -378,6 +414,7 @@ async def get_metrics_summary(
             "provider": settings.LLM_PROVIDER,
             "sandbox_mode": settings.LLM_SANDBOX_MODE,
         },
+        feedback_stats=feedback_stats,
     )
 
 
@@ -389,3 +426,45 @@ def _percentile(sorted_list: List[int], percentile: int) -> int:
     f = int(k)
     c = f + 1 if f + 1 < len(sorted_list) else f
     return int(sorted_list[f] + (sorted_list[c] - sorted_list[f]) * (k - f))
+
+
+def _calculate_feedback_stats(minutes: int) -> FeedbackStats:
+    """计算反馈统计"""
+    cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+    recent_feedbacks = [
+        f for f in _metrics_store["feedbacks"]
+        if f["timestamp"] > cutoff
+    ]
+
+    total = len(recent_feedbacks)
+    if total == 0:
+        return FeedbackStats()
+
+    # 纠错类型统计
+    correction_types = ["correction", "fact_error", "missing_info"]
+    correction_count = sum(
+        1 for f in recent_feedbacks
+        if f["type"] in correction_types
+    )
+
+    # 解决率
+    resolved_count = sum(1 for f in recent_feedbacks if f["resolved"])
+
+    # 高频问题（按 type + severity 组合）
+    issue_counts: Dict[str, int] = {}
+    for f in recent_feedbacks:
+        key = f"{f['type']}:{f['severity']}"
+        issue_counts[key] = issue_counts.get(key, 0) + 1
+
+    top_issues = [
+        {"issue": k, "count": v}
+        for k, v in sorted(issue_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    ]
+
+    return FeedbackStats(
+        total=total,
+        correction_count=correction_count,
+        correction_rate=correction_count / total if total > 0 else 0.0,
+        resolution_rate=resolved_count / total if total > 0 else 0.0,
+        top_issues=top_issues,
+    )

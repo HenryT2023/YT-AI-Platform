@@ -2,13 +2,19 @@
 用户反馈模型
 
 记录用户对 AI 回答的纠错和评价
+
+v2 改进：
+- 新增 severity 字段
+- 新增 suggested_fix 字段
+- 新增 resolved_by_content_id / resolved_by_evidence_id
+- 支持纠错闭环工作流
 """
 
 from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,10 +24,20 @@ from app.database.base import Base, TenantMixin
 class FeedbackType(str, Enum):
     """反馈类型"""
     CORRECTION = "correction"     # 纠错
+    FACT_ERROR = "fact_error"     # 事实错误
+    MISSING_INFO = "missing_info" # 信息缺失
     RATING = "rating"             # 评分
     SUGGESTION = "suggestion"     # 建议
     COMPLAINT = "complaint"       # 投诉
     PRAISE = "praise"             # 表扬
+
+
+class FeedbackSeverity(str, Enum):
+    """反馈严重程度"""
+    LOW = "low"           # 低：小问题
+    MEDIUM = "medium"     # 中：需要修正
+    HIGH = "high"         # 高：严重错误
+    CRITICAL = "critical" # 紧急：必须立即处理
 
 
 class FeedbackStatus(str, Enum):
@@ -31,6 +47,7 @@ class FeedbackStatus(str, Enum):
     ACCEPTED = "accepted"         # 已采纳
     REJECTED = "rejected"         # 已拒绝
     RESOLVED = "resolved"         # 已解决
+    ARCHIVED = "archived"         # 已归档
 
 
 class UserFeedback(Base, TenantMixin):
@@ -79,10 +96,14 @@ class UserFeedback(Base, TenantMixin):
     # 反馈内容
     content: Mapped[Optional[str]] = mapped_column(Text)
 
+    # 严重程度
+    severity: Mapped[str] = mapped_column(String(20), server_default="medium", nullable=False, index=True)
+
     # 纠错信息
     original_response: Mapped[Optional[str]] = mapped_column(Text)
     corrected_response: Mapped[Optional[str]] = mapped_column(Text)
     correction_reason: Mapped[Optional[str]] = mapped_column(Text)
+    suggested_fix: Mapped[Optional[str]] = mapped_column(Text)  # 用户建议的修正
 
     # 标签
     tags: Mapped[list] = mapped_column(ARRAY(String), server_default="{}", nullable=False)
@@ -92,6 +113,21 @@ class UserFeedback(Base, TenantMixin):
     reviewed_by: Mapped[Optional[str]] = mapped_column(String(100))
     reviewed_at: Mapped[Optional[datetime]] = mapped_column()
     review_notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    # 解决关联（绑定修订版本）
+    resolved_by_content_id: Mapped[Optional[str]] = mapped_column(
+        PG_UUID(as_uuid=False),
+        ForeignKey("contents.id", ondelete="SET NULL"),
+        index=True,
+    )
+    resolved_by_evidence_id: Mapped[Optional[str]] = mapped_column(
+        PG_UUID(as_uuid=False),
+        ForeignKey("evidences.id", ondelete="SET NULL"),
+        index=True,
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column()
+    resolved_by: Mapped[Optional[str]] = mapped_column(String(100))
+    resolution_notes: Mapped[Optional[str]] = mapped_column(Text)
 
     # 是否已应用到知识库
     applied_to_knowledge: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
@@ -120,3 +156,24 @@ class UserFeedback(Base, TenantMixin):
         self.reviewed_by = reviewer
         self.reviewed_at = datetime.utcnow()
         self.review_notes = notes
+
+    def resolve(
+        self,
+        resolver: str,
+        notes: Optional[str] = None,
+        content_id: Optional[str] = None,
+        evidence_id: Optional[str] = None,
+    ) -> None:
+        """解决反馈（绑定修订版本）"""
+        self.status = FeedbackStatus.RESOLVED.value
+        self.resolved_by = resolver
+        self.resolved_at = datetime.utcnow()
+        self.resolution_notes = notes
+        if content_id:
+            self.resolved_by_content_id = content_id
+        if evidence_id:
+            self.resolved_by_evidence_id = evidence_id
+
+    def archive(self) -> None:
+        """归档反馈"""
+        self.status = FeedbackStatus.ARCHIVED.value

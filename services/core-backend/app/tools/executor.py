@@ -36,6 +36,11 @@ from app.tools.schemas import (
     RetrieveEvidenceInput,
     RetrieveEvidenceOutput,
     EvidenceItem,
+    SubmitFeedbackInput,
+    SubmitFeedbackOutput,
+    ListFeedbackInput,
+    ListFeedbackOutput,
+    FeedbackItem,
 )
 from app.tools.registry import ToolRegistry, get_tool_registry
 from app.database.models import (
@@ -44,6 +49,7 @@ from app.database.models import (
     TraceLedger,
     PolicyMode,
 )
+from app.database.models.user_feedback import UserFeedback, FeedbackStatus
 
 logger = structlog.get_logger(__name__)
 
@@ -154,6 +160,8 @@ class ToolExecutor:
             "log_user_event": self._handle_log_user_event,
             "get_prompt_active": self._handle_get_prompt_active,
             "retrieve_evidence": self._handle_retrieve_evidence,
+            "submit_feedback": self._handle_submit_feedback,
+            "list_feedback": self._handle_list_feedback,
         }
 
         handler = handlers.get(tool_name)
@@ -710,6 +718,98 @@ class ToolExecutor:
             search_method="like",
             score_distribution=None,
         )
+
+    async def _handle_submit_feedback(
+        self,
+        input: SubmitFeedbackInput,
+        ctx: ToolContext,
+    ) -> SubmitFeedbackOutput:
+        """提交用户反馈"""
+        from uuid import uuid4
+
+        feedback = UserFeedback(
+            id=str(uuid4()),
+            trace_id=input.trace_id or ctx.trace_id,
+            conversation_id=input.conversation_id,
+            message_id=input.message_id,
+            feedback_type=input.feedback_type,
+            severity=input.severity,
+            content=input.content,
+            original_response=input.original_response,
+            suggested_fix=input.suggested_fix,
+            tags=input.tags,
+            tenant_id=ctx.tenant_id,
+            site_id=ctx.site_id,
+            user_id=ctx.user_id,
+            status=FeedbackStatus.PENDING.value,
+            metadata={"source": "tool_call", "npc_id": ctx.npc_id},
+        )
+
+        self.session.add(feedback)
+        await self.session.flush()
+
+        logger.info(
+            "feedback_submitted",
+            feedback_id=feedback.id,
+            trace_id=feedback.trace_id,
+            feedback_type=input.feedback_type,
+        )
+
+        return SubmitFeedbackOutput(
+            feedback_id=feedback.id,
+            status=feedback.status,
+            created_at=feedback.created_at,
+        )
+
+    async def _handle_list_feedback(
+        self,
+        input: ListFeedbackInput,
+        ctx: ToolContext,
+    ) -> ListFeedbackOutput:
+        """查询反馈列表"""
+        from sqlalchemy import func, and_
+
+        conditions = [
+            UserFeedback.tenant_id == ctx.tenant_id,
+            UserFeedback.site_id == ctx.site_id,
+        ]
+
+        if input.status:
+            conditions.append(UserFeedback.status == input.status)
+        if input.feedback_type:
+            conditions.append(UserFeedback.feedback_type == input.feedback_type)
+        if input.severity:
+            conditions.append(UserFeedback.severity == input.severity)
+
+        # 查询总数
+        count_query = select(func.count(UserFeedback.id)).where(and_(*conditions))
+        total_result = await self.session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # 查询列表
+        query = (
+            select(UserFeedback)
+            .where(and_(*conditions))
+            .order_by(UserFeedback.created_at.desc())
+            .limit(input.limit)
+        )
+        result = await self.session.execute(query)
+        feedbacks = result.scalars().all()
+
+        items = [
+            FeedbackItem(
+                id=str(f.id),
+                trace_id=f.trace_id,
+                feedback_type=f.feedback_type,
+                severity=f.severity,
+                content=f.content,
+                status=f.status,
+                created_at=f.created_at,
+            )
+            for f in feedbacks
+        ]
+
+        return ListFeedbackOutput(items=items, total=total)
 
     def _build_system_prompt(
         self,

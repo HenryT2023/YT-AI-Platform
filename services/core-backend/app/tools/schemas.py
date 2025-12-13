@@ -259,3 +259,60 @@ class RetrieveEvidenceOutput(BaseModel):
     query: str
     search_method: str = Field("trgm", description="搜索方法：trgm 或 like")
     score_distribution: Optional[Dict[str, Any]] = Field(None, description="分数分布统计")
+
+
+# ============================================================
+# 用户反馈工具 Schema
+# ============================================================
+
+class SubmitFeedbackInput(BaseModel):
+    """submit_feedback 输入"""
+
+    trace_id: Optional[str] = Field(None, description="关联的 trace ID")
+    conversation_id: Optional[str] = Field(None, description="关联的会话 ID")
+    message_id: Optional[str] = Field(None, description="关联的消息 ID")
+    feedback_type: str = Field(
+        "correction",
+        description="反馈类型: correction/fact_error/missing_info/rating/suggestion/complaint/praise",
+    )
+    severity: str = Field("medium", description="严重程度: low/medium/high/critical")
+    content: str = Field(..., description="反馈内容")
+    original_response: Optional[str] = Field(None, description="原始回答")
+    suggested_fix: Optional[str] = Field(None, description="建议的修正")
+    tags: List[str] = Field(default_factory=list, description="标签")
+
+
+class SubmitFeedbackOutput(BaseModel):
+    """submit_feedback 输出"""
+
+    feedback_id: str
+    status: str
+    created_at: datetime
+
+
+class ListFeedbackInput(BaseModel):
+    """list_feedback 输入"""
+
+    status: Optional[str] = Field(None, description="状态过滤: pending/reviewing/accepted/rejected/resolved")
+    feedback_type: Optional[str] = Field(None, description="类型过滤")
+    severity: Optional[str] = Field(None, description="严重程度过滤")
+    limit: int = Field(10, ge=1, le=50, description="返回数量限制")
+
+
+class FeedbackItem(BaseModel):
+    """反馈条目"""
+
+    id: str
+    trace_id: Optional[str]
+    feedback_type: str
+    severity: str
+    content: Optional[str]
+    status: str
+    created_at: datetime
+
+
+class ListFeedbackOutput(BaseModel):
+    """list_feedback 输出"""
+
+    items: List[FeedbackItem]
+    total: int

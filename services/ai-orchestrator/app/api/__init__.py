@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import chat, npc, observability, trace
+from app.api.v1 import chat, npc, observability, trace, feedback
 
 router = APIRouter()
 
@@ -10,3 +10,4 @@ router.include_router(chat.router, prefix="/v1/chat", tags=["对话"])
 router.include_router(npc.router, prefix="/v1/npc", tags=["NPC对话"])
 router.include_router(observability.router, prefix="/v1", tags=["可观测性"])
 router.include_router(trace.router, prefix="/v1", tags=["Trace回放"])
+router.include_router(feedback.router, prefix="/v1/feedback", tags=["用户反馈"])

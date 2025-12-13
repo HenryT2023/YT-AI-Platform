@@ -25,6 +25,7 @@ from app.api.v1 import (
     trace,
     tools,
     prompts,
+    feedback,
 )
 
 router = APIRouter()
@@ -62,3 +63,6 @@ router.include_router(tools.router, prefix="/tools", tags=["工具服务"])
 
 # Prompt Registry
 router.include_router(prompts.router, prefix="/v1/prompts", tags=["Prompt管理"])
+
+# 用户反馈
+router.include_router(feedback.router, prefix="/v1", tags=["用户反馈"])
