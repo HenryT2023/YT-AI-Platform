@@ -1,0 +1,188 @@
+{
+  "tenant": {
+    "id": "yantian",
+    "name": "严田",
+    "display_name": "严田 AI 文明引擎",
+    "description": "严田古村智慧文旅平台",
+    "plan": "professional"
+  },
+  "site": {
+    "id": "yantian-main",
+    "name": "严田古村",
+    "display_name": "严田 · 千年古村",
+    "description": "严田古村位于江西省婺源县，是一座拥有千年历史的徽派古村落。",
+    "config": {
+      "features": {
+        "ai_guide": true,
+        "evidence_chain": true,
+        "user_feedback": true
+      }
+    },
+    "theme": {
+      "primary_color": "#8B4513",
+      "secondary_color": "#F5F5DC"
+    },
+    "location_lat": 29.2833,
+    "location_lng": 117.8667,
+    "timezone": "Asia/Shanghai"
+  },
+  "_password_warning": "⚠️ 以下密码仅用于开发环境，生产环境必须使用强密码！",
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "_password_note": "开发环境密码，生产环境请修改为强密码",
+      "email": "admin@yantian.ai",
+      "display_name": "超级管理员",
+      "role": "super_admin"
+    },
+    {
+      "username": "operator",
+      "password": "operator123",
+      "_password_note": "开发环境密码，生产环境请修改为强密码",
+      "email": "operator@yantian.ai",
+      "display_name": "运营人员",
+      "role": "operator"
+    }
+  ],
+  "npcs": [
+    {
+      "npc_id": "ancestor_yan",
+      "name": "严氏先祖",
+      "display_name": "严氏先祖",
+      "npc_type": "ancestor",
+      "persona": {
+        "identity": {
+          "era": "清朝乾隆年间",
+          "role": "严氏第十八代族长",
+          "background": "自幼聪颖，十五岁中秀才，后弃文从商，经营徽州茶叶生意。晚年回归故里，主持修缮祠堂，编纂族谱。"
+        },
+        "personality": {
+          "traits": ["睿智", "严谨", "慈祥"],
+          "speaking_style": "文言与白话混用，常引用祖训",
+          "tone": "warm",
+          "catchphrases": ["吾严氏家训有云……", "祖宗之法，不可轻废"]
+        },
+        "knowledge_domains": ["严氏家族历史", "祖训家规", "徽商文化", "徽派建筑"],
+        "conversation_config": {
+          "greeting_templates": [
+            "后生来了？老夫正在此处候着。有何疑问，但说无妨。"
+          ],
+          "fallback_responses": [
+            "此事老夫亦不甚了了，或可询问村中老人。"
+          ],
+          "max_response_length": 500
+        },
+        "constraints": {
+          "forbidden_topics": ["政治敏感", "宗教争议"],
+          "must_cite_sources": true,
+          "time_awareness": "historical"
+        }
+      }
+    },
+    {
+      "npc_id": "woodcarver_master",
+      "name": "木雕师傅",
+      "display_name": "李师傅",
+      "npc_type": "craftsman",
+      "persona": {
+        "identity": {
+          "era": "当代",
+          "role": "徽州木雕非遗传承人",
+          "background": "十六岁拜师学艺，从事木雕四十余年。擅长人物、花鸟雕刻。"
+        },
+        "personality": {
+          "traits": ["朴实", "专注", "热情"],
+          "speaking_style": "朴实直白，常用行话术语",
+          "tone": "casual",
+          "catchphrases": ["这刀法嘛，讲究的是……", "慢工出细活"]
+        },
+        "knowledge_domains": ["徽州木雕技艺", "木材知识", "雕刻工具"],
+        "conversation_config": {
+          "greeting_templates": [
+            "来了啊！想学木雕？先坐下，我给你讲讲。"
+          ],
+          "fallback_responses": [
+            "这个我不太清楚，我只懂木雕这一行。"
+          ],
+          "max_response_length": 400
+        },
+        "constraints": {
+          "forbidden_topics": ["政治敏感"],
+          "must_cite_sources": false,
+          "time_awareness": "contemporary"
+        }
+      }
+    }
+  ],
+  "contents": [
+    {
+      "content_type": "knowledge",
+      "title": "严田村历史沿革",
+      "summary": "严田村千年历史概述",
+      "body": "严田村位于江西省婺源县，始建于宋代，至今已有近千年历史。严氏先祖于北宋年间迁居此地，繁衍生息，形成了独特的宗族文化。村落依山傍水，布局严谨，体现了徽派建筑的精髓。",
+      "category": "历史",
+      "tags": ["历史", "宋代", "婺源"],
+      "domains": ["严氏家族历史", "徽派建筑"],
+      "source": "《婺源县志》",
+      "credibility_score": 0.95,
+      "verified": true
+    },
+    {
+      "content_type": "knowledge",
+      "title": "严氏家训十则",
+      "summary": "严氏家族传承的十条家训",
+      "body": "一、敬祖宗：祭祀不可废，祠堂不可荒。二、孝父母：晨昏定省，养老送终。三、和兄弟：同气连枝，患难与共。四、睦宗族：守望相助，济困扶危。五、教子孙：耕读传家，诗书继世。六、勤职业：士农工商，各安本分。七、慎交游：近君子远小人。八、戒争讼：和为贵，忍为高。九、守法度：奉公守法，不越规矩。十、崇节俭：量入为出，不尚奢华。",
+      "category": "文化",
+      "tags": ["家训", "祖训", "传统文化"],
+      "domains": ["祖训家规", "严氏家族历史"],
+      "source": "《严氏族谱》",
+      "credibility_score": 0.98,
+      "verified": true
+    },
+    {
+      "content_type": "knowledge",
+      "title": "徽州木雕技艺",
+      "summary": "徽州木雕技艺简介",
+      "body": "徽州木雕是中国传统木雕艺术的重要流派，以精细著称。主要用于建筑装饰、家具雕刻和工艺品制作。技法包括浮雕、透雕、圆雕等。题材多为人物故事、花鸟虫鱼、吉祥图案。徽州木雕讲究'三分雕七分磨'，强调刀法与打磨的结合。",
+      "category": "工艺",
+      "tags": ["非遗", "木雕", "手工艺"],
+      "domains": ["徽州木雕技艺", "雕刻工具"],
+      "source": "《徽州工艺美术志》",
+      "credibility_score": 0.9,
+      "verified": true
+    }
+  ],
+  "evidences": [
+    {
+      "source_type": "knowledge_base",
+      "source_ref": "content:严田村历史沿革",
+      "title": "严田村历史沿革",
+      "excerpt": "严田村位于江西省婺源县，始建于宋代，至今已有近千年历史。",
+      "confidence": 0.95,
+      "tags": ["历史", "宋代"],
+      "domains": ["严氏家族历史"],
+      "verified": true
+    },
+    {
+      "source_type": "genealogy",
+      "source_ref": "《严氏族谱》卷一",
+      "title": "严氏家训",
+      "excerpt": "敬祖宗：祭祀不可废，祠堂不可荒。孝父母：晨昏定省，养老送终。",
+      "confidence": 0.98,
+      "tags": ["家训", "祖训"],
+      "domains": ["祖训家规"],
+      "verified": true
+    },
+    {
+      "source_type": "oral_history",
+      "source_ref": "李师傅口述",
+      "title": "木雕技艺口诀",
+      "excerpt": "三分雕七分磨，刀法要稳，心要静。",
+      "confidence": 0.8,
+      "tags": ["木雕", "口诀"],
+      "domains": ["徽州木雕技艺"],
+      "verified": false
+    }
+  ]
+}

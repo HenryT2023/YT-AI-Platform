@@ -1,0 +1,718 @@
+{
+  "version": "1.0.0",
+  "description": "意图分类测试用例集（>=100条）",
+  "categories": {
+    "fact_seeking": "事实性问题，需要证据支撑",
+    "context_preference": "上下文偏好问题，可使用会话记忆",
+    "greeting": "问候语",
+    "clarification": "澄清追问",
+    "out_of_scope": "超出范围"
+  },
+  "cases": [
+    {
+      "id": "fact_001",
+      "query": "严氏是什么时候迁到严田村的？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "迁徙"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_002",
+      "query": "严田村的始祖是谁？",
+      "expected_label": "fact_seeking",
+      "tags": ["人物", "始祖"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_003",
+      "query": "严氏族谱记载了多少代人？",
+      "expected_label": "fact_seeking",
+      "tags": ["族谱", "数量"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_004",
+      "query": "严田村有多少年历史了？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_005",
+      "query": "严氏从哪里迁来的？",
+      "expected_label": "fact_seeking",
+      "tags": ["地点", "迁徙"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_006",
+      "query": "严田村的祠堂是什么时候建的？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "建筑"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_007",
+      "query": "严氏家训有哪些内容？",
+      "expected_label": "fact_seeking",
+      "tags": ["家训", "内容"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_008",
+      "query": "历史上严田村出过什么名人？",
+      "expected_label": "fact_seeking",
+      "tags": ["人物", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_009",
+      "query": "严氏第几代祖先开始定居这里？",
+      "expected_label": "fact_seeking",
+      "tags": ["代数", "定居"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_010",
+      "query": "族谱上记载的开基祖叫什么名字？",
+      "expected_label": "fact_seeking",
+      "tags": ["族谱", "人物"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_011",
+      "query": "严田村在明朝时期发生过什么大事？",
+      "expected_label": "fact_seeking",
+      "tags": ["历史", "事件"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_012",
+      "query": "严氏宗祠的建筑风格是什么朝代的？",
+      "expected_label": "fact_seeking",
+      "tags": ["建筑", "朝代"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_013",
+      "query": "严田村的古井有多少年历史？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "文物"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_014",
+      "query": "严氏族谱是真的吗？有文献记载吗？",
+      "expected_label": "fact_seeking",
+      "tags": ["验证", "文献"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_015",
+      "query": "严田村距今有几百年了？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_016",
+      "query": "严氏祖先是从福建迁来的吗？",
+      "expected_label": "fact_seeking",
+      "tags": ["地点", "迁徙"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_017",
+      "query": "严田村的牌坊是什么年代建的？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "建筑"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_018",
+      "query": "严氏家族在清朝有多少人？",
+      "expected_label": "fact_seeking",
+      "tags": ["数量", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_019",
+      "query": "县志上对严田村有什么记载？",
+      "expected_label": "fact_seeking",
+      "tags": ["文献", "记载"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_020",
+      "query": "严氏第一代祖先是什么时候出生的？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "人物"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_021",
+      "query": "严田村的古树有多少年了？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "自然"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_022",
+      "query": "严氏家族的辈分排行是什么？",
+      "expected_label": "fact_seeking",
+      "tags": ["族谱", "辈分"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_023",
+      "query": "严田村在抗战时期发生过什么？",
+      "expected_label": "fact_seeking",
+      "tags": ["历史", "事件"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_024",
+      "query": "严氏祠堂里供奉的是哪位祖先？",
+      "expected_label": "fact_seeking",
+      "tags": ["人物", "祠堂"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_025",
+      "query": "严田村的石碑上刻的是什么内容？",
+      "expected_label": "fact_seeking",
+      "tags": ["碑刻", "内容"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_026",
+      "query": "严氏家族有多少分支？",
+      "expected_label": "fact_seeking",
+      "tags": ["族谱", "数量"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_027",
+      "query": "严田村的风水格局是怎么形成的？",
+      "expected_label": "fact_seeking",
+      "tags": ["风水", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_028",
+      "query": "严氏祖先为什么选择在这里定居？",
+      "expected_label": "fact_seeking",
+      "tags": ["历史", "原因"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_029",
+      "query": "严田村的古建筑有哪些是文物保护单位？",
+      "expected_label": "fact_seeking",
+      "tags": ["建筑", "文物"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_030",
+      "query": "严氏族谱最早是什么时候编修的？",
+      "expected_label": "fact_seeking",
+      "tags": ["族谱", "时间"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_031",
+      "query": "严田村历史上有没有出过进士？",
+      "expected_label": "fact_seeking",
+      "tags": ["人物", "科举"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_032",
+      "query": "严氏家族的传统节日有哪些？",
+      "expected_label": "fact_seeking",
+      "tags": ["文化", "节日"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_033",
+      "query": "严田村的老房子是什么结构的？",
+      "expected_label": "fact_seeking",
+      "tags": ["建筑", "结构"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_034",
+      "query": "严氏祖先是做什么职业的？",
+      "expected_label": "fact_seeking",
+      "tags": ["人物", "职业"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_035",
+      "query": "严田村的地名是怎么来的？",
+      "expected_label": "fact_seeking",
+      "tags": ["地名", "由来"],
+      "requires_evidence": true
+    },
+    {
+      "id": "pref_001",
+      "query": "你觉得严田村最有意思的地方是什么？",
+      "expected_label": "context_preference",
+      "tags": ["偏好", "推荐"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_002",
+      "query": "你推荐我先去看哪里？",
+      "expected_label": "context_preference",
+      "tags": ["推荐", "建议"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_003",
+      "query": "还有什么有趣的故事吗？",
+      "expected_label": "context_preference",
+      "tags": ["追问", "故事"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_004",
+      "query": "你喜欢这里吗？",
+      "expected_label": "context_preference",
+      "tags": ["情感", "偏好"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_005",
+      "query": "我应该怎么安排游览路线？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "路线"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_006",
+      "query": "你觉得祠堂和古井哪个更值得看？",
+      "expected_label": "context_preference",
+      "tags": ["比较", "推荐"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_007",
+      "query": "能给我讲讲你的看法吗？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "看法"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_008",
+      "query": "你认为严田村的特色是什么？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "特色"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_009",
+      "query": "我对农耕文化感兴趣，有什么推荐？",
+      "expected_label": "context_preference",
+      "tags": ["兴趣", "推荐"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_010",
+      "query": "接着说，然后呢？",
+      "expected_label": "context_preference",
+      "tags": ["追问", "继续"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_011",
+      "query": "刚才你说的那个地方在哪？",
+      "expected_label": "context_preference",
+      "tags": ["追问", "上下文"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_012",
+      "query": "还有吗？继续讲讲",
+      "expected_label": "context_preference",
+      "tags": ["追问", "继续"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_013",
+      "query": "你觉得这里的风景怎么样？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "风景"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_014",
+      "query": "有什么好玩的地方推荐吗？",
+      "expected_label": "context_preference",
+      "tags": ["推荐", "游玩"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_015",
+      "query": "你建议我在这里待多久？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "时间"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_016",
+      "query": "我想了解更多关于祠堂的故事",
+      "expected_label": "context_preference",
+      "tags": ["兴趣", "故事"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_017",
+      "query": "你觉得这里适合带孩子来吗？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "适合"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_018",
+      "query": "有什么特别的体验推荐吗？",
+      "expected_label": "context_preference",
+      "tags": ["推荐", "体验"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_019",
+      "query": "你最喜欢这里的什么？",
+      "expected_label": "context_preference",
+      "tags": ["偏好", "喜欢"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_020",
+      "query": "能聊聊你对这个村子的感受吗？",
+      "expected_label": "context_preference",
+      "tags": ["情感", "感受"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_021",
+      "query": "你认为游客最应该了解什么？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "建议"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_022",
+      "query": "有什么有意思的传说吗？",
+      "expected_label": "context_preference",
+      "tags": ["故事", "传说"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_023",
+      "query": "你觉得这里和其他古村有什么不同？",
+      "expected_label": "context_preference",
+      "tags": ["比较", "特色"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_024",
+      "query": "能给我一些拍照的建议吗？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "拍照"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_025",
+      "query": "你觉得什么季节来这里最好？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "季节"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_001",
+      "query": "你好",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_002",
+      "query": "您好，请问",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_003",
+      "query": "早上好",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_004",
+      "query": "下午好",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_005",
+      "query": "晚上好",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_006",
+      "query": "嗨",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_007",
+      "query": "哈喽",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_008",
+      "query": "hello",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_009",
+      "query": "hi",
+      "expected_label": "greeting",
+      "tags": ["问候"],
+      "requires_evidence": false
+    },
+    {
+      "id": "greet_010",
+      "query": "谢谢",
+      "expected_label": "greeting",
+      "tags": ["感谢"],
+      "requires_evidence": false
+    },
+    {
+      "id": "clarify_001",
+      "query": "你刚才说的是什么意思？",
+      "expected_label": "clarification",
+      "tags": ["澄清", "追问"],
+      "requires_evidence": false
+    },
+    {
+      "id": "clarify_002",
+      "query": "能详细解释一下吗？",
+      "expected_label": "clarification",
+      "tags": ["澄清", "解释"],
+      "requires_evidence": false
+    },
+    {
+      "id": "clarify_003",
+      "query": "我没听懂，能再说一遍吗？",
+      "expected_label": "clarification",
+      "tags": ["澄清", "重复"],
+      "requires_evidence": false
+    },
+    {
+      "id": "clarify_004",
+      "query": "什么叫开基祖？",
+      "expected_label": "clarification",
+      "tags": ["澄清", "概念"],
+      "requires_evidence": false
+    },
+    {
+      "id": "clarify_005",
+      "query": "你说的那个地方具体在哪？",
+      "expected_label": "clarification",
+      "tags": ["澄清", "位置"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_001",
+      "query": "今天股票怎么样？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "金融"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_002",
+      "query": "帮我写一段代码",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "编程"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_003",
+      "query": "明天天气怎么样？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "天气"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_004",
+      "query": "你能帮我订机票吗？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "服务"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_005",
+      "query": "最近有什么好看的电影？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "娱乐"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_006",
+      "query": "你知道怎么减肥吗？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "健康"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_007",
+      "query": "帮我翻译一下这段英文",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "翻译"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_008",
+      "query": "你会唱歌吗？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "能力"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_009",
+      "query": "给我讲个笑话",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "娱乐"],
+      "requires_evidence": false
+    },
+    {
+      "id": "oos_010",
+      "query": "你是什么模型？",
+      "expected_label": "out_of_scope",
+      "tags": ["超范围", "元问题"],
+      "requires_evidence": false
+    },
+    {
+      "id": "mixed_001",
+      "query": "严氏祖先是什么时候来的？你觉得他们为什么选择这里？",
+      "expected_label": "fact_seeking",
+      "tags": ["混合", "时间", "原因"],
+      "requires_evidence": true,
+      "note": "混合问题，以事实性为主"
+    },
+    {
+      "id": "mixed_002",
+      "query": "你能介绍一下祠堂吗？它是什么时候建的？",
+      "expected_label": "fact_seeking",
+      "tags": ["混合", "介绍", "时间"],
+      "requires_evidence": true,
+      "note": "混合问题，包含事实性追问"
+    },
+    {
+      "id": "mixed_003",
+      "query": "这里有什么好玩的？有多少年历史了？",
+      "expected_label": "fact_seeking",
+      "tags": ["混合", "推荐", "历史"],
+      "requires_evidence": true,
+      "note": "混合问题，包含事实性追问"
+    },
+    {
+      "id": "mixed_004",
+      "query": "你觉得族谱记载的内容可信吗？",
+      "expected_label": "fact_seeking",
+      "tags": ["混合", "意见", "验证"],
+      "requires_evidence": true,
+      "note": "虽然问意见，但涉及事实验证"
+    },
+    {
+      "id": "mixed_005",
+      "query": "我想了解严氏家训，能详细说说吗？",
+      "expected_label": "fact_seeking",
+      "tags": ["混合", "兴趣", "内容"],
+      "requires_evidence": true,
+      "note": "虽然表达兴趣，但问的是具体内容"
+    },
+    {
+      "id": "fact_036",
+      "query": "严田村的古桥是什么朝代修建的？",
+      "expected_label": "fact_seeking",
+      "tags": ["时间", "建筑"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_037",
+      "query": "严氏家族有没有族规？",
+      "expected_label": "fact_seeking",
+      "tags": ["族规", "文化"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_038",
+      "query": "严田村的田地是怎么分配的？",
+      "expected_label": "fact_seeking",
+      "tags": ["历史", "制度"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_039",
+      "query": "严氏祖先是从哪条路线迁来的？",
+      "expected_label": "fact_seeking",
+      "tags": ["迁徙", "路线"],
+      "requires_evidence": true
+    },
+    {
+      "id": "fact_040",
+      "query": "严田村在宋朝时叫什么名字？",
+      "expected_label": "fact_seeking",
+      "tags": ["地名", "历史"],
+      "requires_evidence": true
+    },
+    {
+      "id": "pref_026",
+      "query": "你觉得我应该先了解历史还是先看风景？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "顺序"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_027",
+      "query": "有什么适合老人的游览路线吗？",
+      "expected_label": "context_preference",
+      "tags": ["建议", "路线"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_028",
+      "query": "你觉得这里的美食怎么样？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "美食"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_029",
+      "query": "能给我讲个印象深刻的故事吗？",
+      "expected_label": "context_preference",
+      "tags": ["故事", "请求"],
+      "requires_evidence": false
+    },
+    {
+      "id": "pref_030",
+      "query": "你觉得严田村最值得保护的是什么？",
+      "expected_label": "context_preference",
+      "tags": ["意见", "保护"],
+      "requires_evidence": false
+    }
+  ]
+}

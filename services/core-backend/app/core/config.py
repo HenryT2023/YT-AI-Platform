@@ -31,6 +31,17 @@ class Settings(BaseSettings):
 
     # 数据库配置
     DATABASE_URL: str = "postgresql+asyncpg://yantian:yantian@localhost:5432/yantian"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str = "yantian"
+    POSTGRES_PASSWORD: str = "yantian"
+    POSTGRES_DB: str = "yantian"
+
+    # 数据库连接池配置
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800  # 30 分钟
 
     # Redis 配置
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -56,8 +67,12 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: str = ""
     S3_BUCKET: str = "yantian-assets"
 
-    # 站点配置
+    # 多租户配置
+    DEFAULT_TENANT_ID: str = "yantian"
     DEFAULT_SITE_ID: str = "yantian-main"
+
+    # 内部服务通信密钥
+    INTERNAL_API_KEY: str = "your-internal-api-key-change-in-production"
 
     # 功能开关
     FEATURE_IOT_ENABLED: bool = False

@@ -3,6 +3,7 @@
 开发环境种子数据导入脚本
 
 从 data/seeds/ 目录读取 JSON 文件，导入到数据库
+支持：租户、站点、场景、NPC、知识条目、用户
 """
 
 import asyncio
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "services" / "core-backend
 
 from sqlalchemy import text
 from app.db.session import async_session_maker
+from app.core.security import get_password_hash
 
 
 async def load_seed_data(seed_file: Path) -> dict:
@@ -24,20 +26,82 @@ async def load_seed_data(seed_file: Path) -> dict:
         return json.load(f)
 
 
+async def seed_tenant(session, tenant_data: dict) -> None:
+    """导入租户数据"""
+    await session.execute(
+        text("""
+            INSERT INTO tenants (id, name, display_name, description, plan, status)
+            VALUES (:id, :name, :display_name, :description, :plan, 'active')
+            ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                display_name = EXCLUDED.display_name,
+                description = EXCLUDED.description,
+                updated_at = NOW()
+        """),
+        {
+            "id": tenant_data["id"],
+            "name": tenant_data["name"],
+            "display_name": tenant_data.get("display_name"),
+            "description": tenant_data.get("description"),
+            "plan": tenant_data.get("plan", "free"),
+        },
+    )
+    print(f"✅ Tenant '{tenant_data['id']}' imported")
+
+
+async def seed_admin_user(session, tenant_id: str, user_data: dict) -> None:
+    """导入管理员用户"""
+    hashed_password = get_password_hash(user_data.get("password", "admin123"))
+    await session.execute(
+        text("""
+            INSERT INTO users (id, tenant_id, username, email, display_name, 
+                               hashed_password, role, is_active, status)
+            VALUES (gen_random_uuid(), :tenant_id, :username, :email, :display_name,
+                    :hashed_password, :role, true, 'active')
+            ON CONFLICT (username) DO UPDATE SET
+                email = EXCLUDED.email,
+                display_name = EXCLUDED.display_name,
+                role = EXCLUDED.role,
+                updated_at = NOW()
+        """),
+        {
+            "tenant_id": tenant_id,
+            "username": user_data["username"],
+            "email": user_data.get("email"),
+            "display_name": user_data.get("display_name"),
+            "hashed_password": hashed_password,
+            "role": user_data.get("role", "tenant_admin"),
+        },
+    )
+    print(f"✅ User '{user_data['username']}' imported")
+
+
 async def seed_site(data: dict) -> None:
     """导入站点数据"""
     async with async_session_maker() as session:
+        # 先导入租户
+        tenant_data = data.get("tenant", {"id": "yantian", "name": "严田"})
+        await seed_tenant(session, tenant_data)
+
+        # 导入管理员用户
+        admin_users = data.get("users", [
+            {"username": "admin", "password": "admin123", "role": "super_admin", "display_name": "超级管理员"}
+        ])
+        for user in admin_users:
+            await seed_admin_user(session, tenant_data["id"], user)
+
         site_data = data.get("site", {})
         if not site_data:
             print("No site data found")
+            await session.commit()
             return
 
-        # 插入站点
+        # 插入站点（包含 tenant_id）
         await session.execute(
             text("""
-                INSERT INTO sites (id, name, display_name, description, config, theme, 
+                INSERT INTO sites (id, tenant_id, name, display_name, description, config, theme, 
                                    location_lat, location_lng, timezone, status)
-                VALUES (:id, :name, :display_name, :description, :config::jsonb, :theme::jsonb,
+                VALUES (:id, :tenant_id, :name, :display_name, :description, :config::jsonb, :theme::jsonb,
                         :location_lat, :location_lng, :timezone, 'active')
                 ON CONFLICT (id) DO UPDATE SET
                     name = EXCLUDED.name,
@@ -49,6 +113,7 @@ async def seed_site(data: dict) -> None:
             """),
             {
                 "id": site_data["id"],
+                "tenant_id": tenant_data["id"],
                 "name": site_data["name"],
                 "display_name": site_data.get("display_name"),
                 "description": site_data.get("description"),
@@ -107,6 +172,36 @@ async def seed_site(data: dict) -> None:
                 },
             )
         print(f"✅ {len(npcs)} NPCs imported")
+
+        # 插入知识条目
+        knowledge_entries = data.get("knowledge", [])
+        for entry in knowledge_entries:
+            entry_id = str(uuid4())
+            await session.execute(
+                text("""
+                    INSERT INTO knowledge_entries (id, tenant_id, site_id, title, content, 
+                                                   summary, knowledge_type, domains, tags,
+                                                   source, credibility_score, verified, status)
+                    VALUES (:id, :tenant_id, :site_id, :title, :content,
+                            :summary, :knowledge_type, :domains, :tags,
+                            :source, :credibility_score, :verified, 'active')
+                """),
+                {
+                    "id": entry_id,
+                    "tenant_id": tenant_data["id"],
+                    "site_id": site_data["id"],
+                    "title": entry["title"],
+                    "content": entry["content"],
+                    "summary": entry.get("summary"),
+                    "knowledge_type": entry.get("knowledge_type", "other"),
+                    "domains": entry.get("domains", []),
+                    "tags": entry.get("tags", []),
+                    "source": entry.get("source"),
+                    "credibility_score": entry.get("credibility_score", 1.0),
+                    "verified": entry.get("verified", False),
+                },
+            )
+        print(f"✅ {len(knowledge_entries)} knowledge entries imported")
 
         await session.commit()
         print("✅ All seed data imported successfully!")

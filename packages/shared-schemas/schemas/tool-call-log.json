@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yantian.ai/schemas/tool-call-log.json",
+  "title": "Tool Call Log Schema",
+  "description": "严田 AI 文明引擎 MCP 工具调用日志规范",
+  "type": "object",
+  "required": ["trace_id", "tool_name", "input_params", "status", "tenant_id", "site_id"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "日志唯一标识"
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "追踪 ID，用于关联同一请求链路的所有调用"
+    },
+    "span_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "跨度 ID，标识单次调用"
+    },
+    "parent_span_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "父跨度 ID，用于构建调用树"
+    },
+    "tenant_id": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "租户 ID"
+    },
+    "site_id": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "站点 ID"
+    },
+    "caller_service": {
+      "type": "string",
+      "enum": ["ai-orchestrator", "core-backend", "worker", "admin-console", "miniapp", "internal"],
+      "description": "调用方服务名"
+    },
+    "caller_session_id": {
+      "type": "string",
+      "description": "调用方会话 ID"
+    },
+    "caller_user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "调用方用户 ID"
+    },
+    "caller_visitor_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "调用方游客 ID"
+    },
+    "tool_name": {
+      "type": "string",
+      "description": "工具名称"
+    },
+    "tool_version": {
+      "type": "string",
+      "default": "1.0.0",
+      "description": "工具版本"
+    },
+    "input_params": {
+      "type": "object",
+      "description": "输入参数"
+    },
+    "output_result": {
+      "type": "object",
+      "description": "输出结果"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "错误信息"
+    },
+    "error_code": {
+      "type": "string",
+      "description": "错误代码"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "success", "failed", "timeout"],
+      "description": "调用状态"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "开始时间"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "完成时间"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "执行耗时（毫秒）"
+    },
+    "tokens_used": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "消耗的 token 数量"
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0,
+      "description": "调用成本（美元）"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "额外元数据"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

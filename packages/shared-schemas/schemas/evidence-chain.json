@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yantian.ai/schemas/evidence-chain.json",
+  "title": "Evidence Chain Schema",
+  "description": "严田 AI 文明引擎证据链规范，用于追溯 NPC 输出的来源",
+  "type": "object",
+  "required": ["trace_id", "evidence_ids"],
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "description": "追踪 ID，关联到对话请求"
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "证据条目 ID 列表"
+    },
+    "evidences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EvidenceItem"
+      },
+      "description": "证据条目详情"
+    },
+    "total_credibility": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "总体可信度评分 (0-1)"
+    },
+    "has_verified_evidence": {
+      "type": "boolean",
+      "description": "是否包含经过人工验证的证据"
+    },
+    "validation_result": {
+      "$ref": "#/definitions/ValidationResult"
+    }
+  },
+  "definitions": {
+    "EvidenceItem": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "证据条目 ID（对应 knowledge_entries 表）"
+        },
+        "title": {
+          "type": "string",
+          "description": "证据标题"
+        },
+        "content_snippet": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "内容摘要"
+        },
+        "source": {
+          "type": "string",
+          "description": "来源描述"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "来源链接"
+        },
+        "credibility_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "可信度评分"
+        },
+        "verified": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否经过人工验证"
+        },
+        "verified_by": {
+          "type": "string",
+          "description": "验证人"
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "验证时间"
+        },
+        "knowledge_type": {
+          "type": "string",
+          "enum": [
+            "historical_fact",
+            "cultural_heritage",
+            "farming_wisdom",
+            "ancestral_teaching",
+            "local_custom",
+            "architecture",
+            "genealogy",
+            "craft",
+            "solar_term",
+            "other"
+          ],
+          "description": "知识类型"
+        }
+      }
+    },
+    "ValidationResult": {
+      "type": "object",
+      "required": ["passed", "level"],
+      "properties": {
+        "passed": {
+          "type": "boolean",
+          "description": "验证是否通过"
+        },
+        "level": {
+          "type": "string",
+          "enum": ["strict", "normal", "relaxed"],
+          "description": "验证级别"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "置信度"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["no_evidence", "low_confidence", "unverified", "out_of_domain"],
+          "description": "未通过原因"
+        },
+        "suggestions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "建议措施"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "trace_id": "abc123-def456",
+      "evidence_ids": ["uuid-1", "uuid-2"],
+      "evidences": [
+        {
+          "id": "uuid-1",
+          "title": "严田村历史沿革",
+          "content_snippet": "严田村始建于宋代，至今已有近千年历史...",
+          "source": "《婺源县志》",
+          "credibility_score": 0.95,
+          "verified": true,
+          "knowledge_type": "historical_fact"
+        }
+      ],
+      "total_credibility": 0.9,
+      "has_verified_evidence": true,
+      "validation_result": {
+        "passed": true,
+        "level": "normal",
+        "confidence": 0.9
+      }
+    }
+  ]
+}

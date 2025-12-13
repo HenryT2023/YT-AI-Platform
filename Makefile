@@ -161,6 +161,33 @@ docker-logs:
 	docker-compose logs -f
 
 # -----------------
+# 开发环境（最小化）
+# -----------------
+dev-up:
+	@echo "🐳 启动开发环境（最小化）..."
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "⏳ 等待服务就绪..."
+	@sleep 10
+	@echo "✅ 开发环境已启动"
+	@echo "  - Core Backend: http://localhost:8000"
+	@echo "  - AI Orchestrator: http://localhost:8001"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo "  - Redis: localhost:6379"
+
+dev-down:
+	@echo "🛑 停止开发环境..."
+	docker-compose -f docker-compose.dev.yml down
+	@echo "✅ 开发环境已停止"
+
+dev-logs:
+	docker-compose -f docker-compose.dev.yml logs -f
+
+dev-healthz:
+	@echo "🔍 检查服务健康状态..."
+	@curl -s http://localhost:8000/health | jq . || echo "❌ Core Backend 不可用"
+	@curl -s http://localhost:8001/api/v1/healthz | jq . || echo "❌ AI Orchestrator 不可用"
+
+# -----------------
 # 测试
 # -----------------
 test:
@@ -183,6 +210,10 @@ test-integration:
 test-e2e:
 	@echo "🧪 运行端到端测试..."
 	pytest tests/e2e -v
+
+e2e-chat:
+	@echo "🧪 运行端到端对话测试..."
+	python scripts/e2e_chat_test.py
 
 # -----------------
 # 代码质量

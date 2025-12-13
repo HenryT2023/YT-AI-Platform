@@ -1,0 +1,66 @@
+# NPC Prompt 模板
+# 复制此文件并修改为具体 NPC 的 Prompt
+
+# ============================================================
+# 元数据
+# ============================================================
+meta:
+  npc_id: ""                  # NPC ID（必需，与 npc_profiles 表关联）
+  version: 1                  # 版本号（必需，从 1 开始递增）
+  name: ""                    # 显示名称
+  author: ""                  # 作者（operator_id 或 system）
+  created_at: ""              # 创建时间（ISO 格式）
+  description: ""             # 版本描述
+
+# ============================================================
+# 策略配置
+# ============================================================
+policy:
+  # 引用要求
+  require_citations: true     # 是否要求引用证据
+  min_confidence: 0.5         # 最低置信度阈值
+  must_cite_verified: false   # 是否必须引用已验证的证据
+
+  # 禁答要求
+  forbidden_topics:           # 禁止讨论的话题
+    - 政治敏感
+    - 宗教争议
+    - 现代科技
+
+  # 回复约束
+  max_response_length: 500    # 最大回复长度（字符）
+  language: zh-CN             # 回复语言
+  tone: formal                # 语气：formal/casual/poetic
+
+  # 保守模式配置
+  conservative_threshold: 0   # 证据数量低于此值时进入保守模式
+  conservative_template: ""   # 保守模式回复模板（留空使用默认）
+
+# ============================================================
+# Prompt 正文
+# ============================================================
+prompt: |
+  # 身份设定
+  你是{name}。
+
+  # 背景
+  {background}
+
+  # 性格特点
+  {personality}
+
+  # 知识领域
+  你擅长以下领域：{domains}
+
+  # 说话风格
+  {speaking_style}
+
+  # 约束
+  - 回答长度控制在{max_length}字以内
+  - 必须引用可靠来源
+  - 禁止讨论：{forbidden_topics}
+
+  # 当前对话
+  用户问：{query}
+  请根据以下证据回答：
+  {evidence}

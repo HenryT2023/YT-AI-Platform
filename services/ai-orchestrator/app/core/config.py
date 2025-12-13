@@ -31,14 +31,31 @@ class Settings(BaseSettings):
     CORE_BACKEND_URL: str = "http://localhost:8000"
     INTERNAL_API_KEY: str = "your-internal-api-key"
 
+    # Tool Server 配置（指向 core-backend 的 /tools 接口）
+    TOOLS_BASE_URL: str = "http://localhost:8000/api/tools"
+    TOOLS_TIMEOUT_SECONDS: int = 30
+
+    # 百度 LLM 配置
+    BAIDU_API_KEY: str = ""
+    BAIDU_SECRET_KEY: str = ""
+    BAIDU_MODEL: str = "ernie-bot-4"
+    BAIDU_TIMEOUT_SECONDS: float = 60.0
+    BAIDU_MAX_RETRIES: int = 3
+
+    # LLM 降级配置
+    LLM_FALLBACK_ENABLED: bool = True
+    LLM_SANDBOX_MODE: bool = False  # 开启后使用模拟响应
+
     # Redis 配置
     REDIS_URL: str = "redis://localhost:6379/0"
+    CACHE_ENABLED: bool = True
+    CACHE_DEFAULT_TTL: int = 300
 
     # CORS 配置
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # LLM 配置
-    LLM_PROVIDER: str = "openai"  # openai / qwen / ollama
+    LLM_PROVIDER: str = "baidu"  # baidu / openai / qwen / ollama
 
     # OpenAI 配置
     OPENAI_API_KEY: str = ""
@@ -71,6 +88,22 @@ class Settings(BaseSettings):
 
     # 记忆配置
     MEMORY_TTL_SECONDS: int = 86400  # 24 小时
+    MEMORY_MAX_MESSAGES: int = 10    # 最大消息条数
+    MEMORY_MAX_CHARS: int = 4000     # 最大字符数
+    MEMORY_ENABLED: bool = True      # 是否启用会话记忆
+
+    # 多租户默认配置
+    DEFAULT_TENANT_ID: str = "yantian"
+    DEFAULT_SITE_ID: str = "yantian-main"
+
+    # 证据链配置
+    MIN_EVIDENCE_COUNT: int = 1
+    MIN_CONFIDENCE_THRESHOLD: float = 0.5
+    REQUIRE_VERIFIED_FOR_HISTORY: bool = True
+
+    # 意图分类器配置
+    INTENT_CLASSIFIER_USE_LLM: bool = False  # 是否使用 LLM 意图分类器
+    INTENT_CLASSIFIER_CACHE_TTL: int = 300   # 缓存 TTL（秒）
 
     @property
     def is_production(self) -> bool:

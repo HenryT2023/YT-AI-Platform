@@ -1,12 +1,14 @@
 """
 站点模型
 
-Site 是多租户架构的核心实体，所有其他实体都通过 site_id 关联
+Site 是多站点架构的核心实体
+一个 Tenant 可以拥有多个 Site
+所有业务实体都通过 tenant_id + site_id 关联
 """
 
 from typing import Any, Optional
 
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +21,9 @@ class Site(Base, AuditMixin):
     __tablename__ = "sites"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.id"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     display_name: Mapped[Optional[str]] = mapped_column(String(200))
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -32,12 +37,15 @@ class Site(Base, AuditMixin):
 
     status: Mapped[str] = mapped_column(String(20), default="active")
 
+    # 关联
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="sites")
     scenes: Mapped[list["Scene"]] = relationship(back_populates="site", lazy="selectin")
     npcs: Mapped[list["NPC"]] = relationship(back_populates="site", lazy="selectin")
 
     def __repr__(self) -> str:
-        return f"<Site(id={self.id}, name={self.name})>"
+        return f"<Site(id={self.id}, tenant_id={self.tenant_id}, name={self.name})>"
 
 
+from app.domain.tenant import Tenant
 from app.domain.scene import Scene
 from app.domain.npc import NPC

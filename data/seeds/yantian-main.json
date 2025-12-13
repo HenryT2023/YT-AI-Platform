@@ -1,4 +1,27 @@
 {
+  "tenant": {
+    "id": "yantian",
+    "name": "严田",
+    "display_name": "严田 AI 文明引擎",
+    "description": "严田古村智慧文旅平台",
+    "plan": "professional"
+  },
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "email": "admin@yantian.ai",
+      "display_name": "超级管理员",
+      "role": "super_admin"
+    },
+    {
+      "username": "operator",
+      "password": "operator123",
+      "email": "operator@yantian.ai",
+      "display_name": "运营人员",
+      "role": "operator"
+    }
+  ],
   "site": {
     "id": "yantian-main",
     "name": "严田古村",
@@ -159,6 +182,63 @@
           "npc_name": "ancestor_yan"
         }
       ]
+    }
+  ],
+  "knowledge": [
+    {
+      "title": "严田村历史沿革",
+      "content": "严田村位于江西省婺源县，始建于宋代，至今已有近千年历史。严氏先祖于北宋年间迁居此地，繁衍生息，形成了独特的宗族文化。村落依山傍水，布局严谨，体现了徽派建筑的精髓。",
+      "summary": "严田村千年历史概述",
+      "knowledge_type": "historical_fact",
+      "domains": ["严氏家族历史", "徽派建筑"],
+      "tags": ["历史", "宋代", "婺源"],
+      "source": "《婺源县志》",
+      "credibility_score": 0.95,
+      "verified": true
+    },
+    {
+      "title": "严氏家训十则",
+      "content": "一、敬祖宗：祭祀不可废，祠堂不可荒。二、孝父母：晨昏定省，养老送终。三、和兄弟：同气连枝，患难与共。四、睦宗族：守望相助，济困扶危。五、教子孙：耕读传家，诗书继世。六、勤职业：士农工商，各安本分。七、慎交游：近君子远小人。八、戒争讼：和为贵，忍为高。九、守法度：奉公守法，不越规矩。十、崇节俭：量入为出，不尚奢华。",
+      "summary": "严氏家族传承的十条家训",
+      "knowledge_type": "ancestral_teaching",
+      "domains": ["祖训家规", "严氏家族历史"],
+      "tags": ["家训", "祖训", "传统文化"],
+      "source": "《严氏族谱》",
+      "credibility_score": 0.98,
+      "verified": true
+    },
+    {
+      "title": "徽州木雕技艺",
+      "content": "徽州木雕是中国传统木雕艺术的重要流派，以精细著称。主要用于建筑装饰、家具雕刻和工艺品制作。技法包括浮雕、透雕、圆雕等。题材多为人物故事、花鸟虫鱼、吉祥图案。徽州木雕讲究'三分雕七分磨'，强调刀法与打磨的结合。",
+      "summary": "徽州木雕技艺简介",
+      "knowledge_type": "craft",
+      "domains": ["徽州木雕技艺", "雕刻工具"],
+      "tags": ["非遗", "木雕", "手工艺"],
+      "source": "《徽州工艺美术志》",
+      "credibility_score": 0.9,
+      "verified": true
+    },
+    {
+      "title": "二十四节气与农耕",
+      "content": "二十四节气是中国古代农耕文明的智慧结晶。立春开始备耕，雨水灌溉，惊蛰播种，春分施肥，清明插秧，谷雨收麦。严田村至今保留着按节气安排农事的传统，每逢重要节气都有相应的祭祀和农事活动。",
+      "summary": "二十四节气与严田农耕传统",
+      "knowledge_type": "farming_wisdom",
+      "domains": ["节气知识", "农耕智慧"],
+      "tags": ["节气", "农耕", "传统"],
+      "source": "村中老人口述",
+      "credibility_score": 0.85,
+      "verified": false
+    },
+    {
+      "title": "严氏宗祠建筑特色",
+      "content": "严氏宗祠始建于明朝嘉靖年间，占地面积约800平方米。采用典型的徽派建筑风格，三进两院布局。门楼高大，马头墙错落有致。祠内保存有明清时期的木雕、石雕和砖雕，工艺精湛。正厅悬挂'敦本堂'匾额，寓意敦厚本分。",
+      "summary": "严氏宗祠建筑介绍",
+      "knowledge_type": "architecture",
+      "domains": ["徽派建筑", "严氏家族历史"],
+      "tags": ["宗祠", "建筑", "明代"],
+      "source": "《严氏宗祠修缮记》",
+      "credibility_score": 0.92,
+      "verified": true
     }
   ]
 }

@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yantian.ai/schemas/mcp-tool.json",
+  "title": "MCP Tool Definition Schema",
+  "description": "严田 AI 文明引擎 MCP 工具定义规范",
+  "type": "object",
+  "required": ["name", "description", "input_schema"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "description": "工具名称，格式为 category.action，如 knowledge.search"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "工具功能描述，供 LLM 理解工具用途"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "default": "1.0.0",
+      "description": "工具版本号，遵循语义化版本"
+    },
+    "input_schema": {
+      "type": "object",
+      "description": "输入参数的 JSON Schema 定义",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "object"
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "properties": {
+          "type": "object"
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "description": "输出结果的 JSON Schema 定义"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["knowledge", "npc", "scene", "visitor", "quest", "farming", "general"],
+      "description": "工具类别"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "工具标签，用于分类和搜索"
+    },
+    "required_permissions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "调用此工具所需的权限列表"
+    },
+    "requires_evidence": {
+      "type": "boolean",
+      "default": false,
+      "description": "是否需要返回证据链"
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300,
+      "default": 30,
+      "description": "工具执行超时时间（秒）"
+    },
+    "ai_callable": {
+      "type": "boolean",
+      "default": true,
+      "description": "是否可被 AI 直接调用"
+    },
+    "rate_limit": {
+      "type": "object",
+      "properties": {
+        "requests_per_minute": { "type": "integer" },
+        "requests_per_hour": { "type": "integer" }
+      },
+      "description": "调用频率限制"
+    }
+  },
+  "examples": [
+    {
+      "name": "knowledge.search",
+      "description": "在知识库中搜索相关内容，返回匹配的知识条目作为证据",
+      "version": "1.0.0",
+      "input_schema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索查询文本"
+          },
+          "domains": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "限定搜索的知识领域"
+          },
+          "top_k": {
+            "type": "integer",
+            "default": 5
+          }
+        }
+      },
+      "category": "knowledge",
+      "tags": ["rag", "search", "evidence"],
+      "requires_evidence": true,
+      "ai_callable": true
+    }
+  ]
+}

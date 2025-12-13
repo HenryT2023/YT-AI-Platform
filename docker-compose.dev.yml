@@ -1,0 +1,137 @@
+# ===========================
+# 严田 AI 文明引擎 - 开发环境 Docker Compose
+# ===========================
+# 最小化启动：Postgres + Redis + core-backend + ai-orchestrator
+# 用于端到端联调
+
+version: "3.9"
+
+services:
+  # -----------------
+  # 基础设施
+  # -----------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: yantian-postgres-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-yantian}
+      POSTGRES_USER: ${POSTGRES_USER:-yantian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yantian_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yantian}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: yantian-redis-dev
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # -----------------
+  # 应用服务
+  # -----------------
+  core-backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: development
+    container_name: yantian-core-backend-dev
+    ports:
+      - "${CORE_BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./services/core-backend:/app
+      - ./packages:/packages:ro
+      - ./data:/data:ro
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '⏳ 等待数据库迁移...' &&
+        alembic upgrade head &&
+        echo '🚀 启动 Core Backend...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  ai-orchestrator:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: development
+      args:
+        SERVICE_PATH: services/ai-orchestrator
+    container_name: yantian-ai-orchestrator-dev
+    ports:
+      - "${AI_ORCHESTRATOR_PORT:-8001}:8001"
+    volumes:
+      - ./services/ai-orchestrator:/app
+      - ./packages:/packages:ro
+      - ./data:/data:ro
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - CORE_BACKEND_URL=http://core-backend:8000
+      - LLM_PROVIDER=${LLM_PROVIDER:-baidu}
+      - LLM_SANDBOX_MODE=${LLM_SANDBOX_MODE:-true}
+      - BAIDU_API_KEY=${BAIDU_API_KEY:-}
+      - BAIDU_SECRET_KEY=${BAIDU_SECRET_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - MEMORY_ENABLED=true
+      - MEMORY_MAX_MESSAGES=10
+    depends_on:
+      redis:
+        condition: service_healthy
+      core-backend:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# -----------------
+# 数据卷
+# -----------------
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+# -----------------
+# 网络
+# -----------------
+networks:
+  default:
+    name: yantian-dev-network
+    driver: bridge

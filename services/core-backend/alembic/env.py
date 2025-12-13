@@ -1,20 +1,40 @@
 """
 Alembic 迁移环境配置
+
+使用异步 SQLAlchemy + asyncpg
 """
 
 import asyncio
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.core.config import settings
-from app.db.base import Base
+# 添加项目路径
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 导入所有模型以确保它们被注册
-from app.domain import site, scene, poi, npc, quest, visitor  # noqa: F401
+from app.core.config import settings
+from app.database.base import Base
+
+# 导入所有模型以确保它们被注册到 metadata
+from app.database.models import (  # noqa: F401
+    Tenant,
+    Site,
+    User,
+    Content,
+    NPCProfile,
+    Quest,
+    QuestStep,
+    Evidence,
+    Conversation,
+    Message,
+    TraceLedger,
+    UserFeedback,
+)
 
 config = context.config
 
@@ -23,8 +43,17 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+
+def _build_database_url() -> str:
+    """构建异步数据库连接 URL"""
+    return (
+        f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    )
+
+
 # 使用环境变量中的数据库 URL
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", _build_database_url())
 
 
 def run_migrations_offline() -> None:
