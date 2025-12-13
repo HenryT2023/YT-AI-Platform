@@ -489,21 +489,31 @@ class ToolExecutor:
         """
         检索证据
 
-        支持两种搜索方式：
-        1. pg_trgm 相似度搜索（默认）：使用 similarity() 函数和 % 运算符
-        2. LIKE 搜索（回退）：传统模糊匹配
+        支持三种检索策略：
+        1. trgm: pg_trgm 相似度搜索
+        2. qdrant: Qdrant 向量语义检索
+        3. hybrid: 混合检索（trgm + qdrant）
         """
-        from app.database.models import Evidence
-        from sqlalchemy import text, func, literal_column
+        from app.core.config import settings
 
-        log = logger.bind(query=input.query[:50], use_trgm=input.use_trgm)
+        log = logger.bind(query=input.query[:50], strategy=input.strategy)
 
-        if input.use_trgm:
-            # pg_trgm 相似度搜索
-            return await self._retrieve_evidence_trgm(input, ctx, log)
-        else:
-            # 传统 LIKE 搜索
+        # 确定检索策略
+        strategy = input.strategy
+        if not strategy or strategy not in ("trgm", "qdrant", "hybrid"):
+            strategy = settings.RETRIEVAL_STRATEGY
+
+        # 向后兼容：use_trgm=False 时使用 LIKE
+        if not input.use_trgm and strategy == "trgm":
             return await self._retrieve_evidence_like(input, ctx, log)
+
+        if strategy == "qdrant":
+            return await self._retrieve_evidence_qdrant(input, ctx, log)
+        elif strategy == "hybrid":
+            return await self._retrieve_evidence_hybrid(input, ctx, log)
+        else:
+            # trgm
+            return await self._retrieve_evidence_trgm(input, ctx, log)
 
     async def _retrieve_evidence_trgm(
         self,
@@ -709,14 +719,136 @@ class ToolExecutor:
             for e in evidences
         ]
 
-        log.info("retrieve_evidence_like", hit_count=len(items))
+        log.info("retrieve_evidence_trgm", hit_count=len(items))
 
         return RetrieveEvidenceOutput(
             items=items,
             total=len(items),
             query=input.query,
-            search_method="like",
-            score_distribution=None,
+            strategy="trgm",
+            search_method="trgm",
+            score_distribution=score_distribution,
+        )
+
+    async def _retrieve_evidence_qdrant(
+        self,
+        input: RetrieveEvidenceInput,
+        ctx: ToolContext,
+        log,
+    ) -> RetrieveEvidenceOutput:
+        """使用 Qdrant 向量语义检索"""
+        from app.retrieval.qdrant_client import get_qdrant_client
+
+        qdrant = get_qdrant_client()
+        results = await qdrant.search(
+            query=input.query,
+            tenant_id=ctx.tenant_id,
+            site_id=ctx.site_id,
+            limit=input.limit,
+            min_score=input.min_score,
+            domains=input.domains,
+        )
+
+        items = [
+            EvidenceItem(
+                id=r.id,
+                source_type=r.source_type,
+                source_ref=r.source_ref,
+                title=r.title,
+                excerpt=r.excerpt[:300] if len(r.excerpt) > 300 else r.excerpt,
+                confidence=r.confidence,
+                verified=r.verified,
+                tags=r.tags,
+                retrieval_score=r.score,
+                qdrant_score=r.qdrant_score,
+            )
+            for r in results
+        ]
+
+        scores = [r.score for r in results]
+        score_distribution = None
+        if scores:
+            score_distribution = {
+                "min": min(scores),
+                "max": max(scores),
+                "avg": sum(scores) / len(scores),
+                "count": len(scores),
+            }
+
+        log.info("retrieve_evidence_qdrant", hit_count=len(items))
+
+        return RetrieveEvidenceOutput(
+            items=items,
+            total=len(items),
+            query=input.query,
+            strategy="qdrant",
+            search_method="qdrant",
+            score_distribution=score_distribution,
+        )
+
+    async def _retrieve_evidence_hybrid(
+        self,
+        input: RetrieveEvidenceInput,
+        ctx: ToolContext,
+        log,
+    ) -> RetrieveEvidenceOutput:
+        """使用混合检索（trgm + qdrant）"""
+        from app.retrieval.hybrid import HybridRetriever
+        from app.retrieval.qdrant_client import get_qdrant_client
+
+        hybrid = HybridRetriever(
+            session=self.session,
+            qdrant_client=get_qdrant_client(),
+        )
+
+        results = await hybrid.search(
+            query=input.query,
+            tenant_id=ctx.tenant_id,
+            site_id=ctx.site_id,
+            limit=input.limit,
+            min_score=input.min_score,
+            domains=input.domains,
+        )
+
+        items = [
+            EvidenceItem(
+                id=r.id,
+                source_type=r.source_type,
+                source_ref=r.source_ref,
+                title=r.title,
+                excerpt=r.excerpt[:300] if len(r.excerpt) > 300 else r.excerpt,
+                confidence=r.confidence,
+                verified=r.verified,
+                tags=r.tags,
+                retrieval_score=r.score,
+                trgm_score=r.trgm_score,
+                qdrant_score=r.qdrant_score,
+            )
+            for r in results
+        ]
+
+        scores = [r.score for r in results]
+        score_distribution = None
+        if scores:
+            score_distribution = {
+                "min": min(scores),
+                "max": max(scores),
+                "avg": sum(scores) / len(scores),
+                "count": len(scores),
+                "trgm_hits": sum(1 for r in results if r.trgm_score),
+                "qdrant_hits": sum(1 for r in results if r.qdrant_score),
+                "both_hits": sum(1 for r in results if r.trgm_score and r.qdrant_score),
+            }
+
+        log.info("retrieve_evidence_hybrid", hit_count=len(items), distribution=score_distribution)
+
+        return RetrieveEvidenceOutput(
+            items=items,
+            total=len(items),
+            query=input.query,
+            strategy="hybrid",
+            search_method="hybrid",
+            score_distribution=score_distribution,
         )
 
     async def _handle_submit_feedback(

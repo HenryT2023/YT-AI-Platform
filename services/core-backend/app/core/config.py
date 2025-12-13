@@ -74,6 +74,21 @@ class Settings(BaseSettings):
     # 内部服务通信密钥
     INTERNAL_API_KEY: str = "your-internal-api-key-change-in-production"
 
+    # Qdrant 配置
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_COLLECTION: str = "yantian_evidence"
+    QDRANT_ENABLED: bool = True
+
+    # Embedding 配置
+    OPENAI_API_KEY: str = ""
+    BAIDU_API_KEY: str = ""
+    BAIDU_SECRET_KEY: str = ""
+
+    # 检索配置
+    RETRIEVAL_STRATEGY: str = "hybrid"  # trgm / qdrant / hybrid
+    RETRIEVAL_TRGM_WEIGHT: float = 0.4
+    RETRIEVAL_QDRANT_WEIGHT: float = 0.6
+
     # 功能开关
     FEATURE_IOT_ENABLED: bool = False
     FEATURE_FARMING_ENGINE_ENABLED: bool = False

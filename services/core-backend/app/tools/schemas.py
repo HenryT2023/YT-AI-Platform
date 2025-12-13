@@ -233,8 +233,9 @@ class RetrieveEvidenceInput(BaseModel):
     query: str = Field(..., description="搜索关键词")
     domains: Optional[List[str]] = Field(None, description="知识领域过滤")
     limit: int = Field(5, ge=1, le=20, description="返回数量限制")
-    min_score: float = Field(0.3, ge=0.0, le=1.0, description="最小相似度阈值（pg_trgm）")
-    use_trgm: bool = Field(True, description="是否使用 pg_trgm 相似度搜索")
+    min_score: float = Field(0.3, ge=0.0, le=1.0, description="最小相似度阈值")
+    strategy: str = Field("hybrid", description="检索策略: trgm/qdrant/hybrid")
+    use_trgm: bool = Field(True, description="[已废弃] 是否使用 pg_trgm，请使用 strategy")
 
 
 class EvidenceItem(BaseModel):
@@ -248,7 +249,9 @@ class EvidenceItem(BaseModel):
     confidence: float = 1.0
     verified: bool = False
     tags: List[str] = Field(default_factory=list)
-    retrieval_score: Optional[float] = Field(None, description="检索相似度分数（pg_trgm）")
+    retrieval_score: Optional[float] = Field(None, description="检索分数")
+    trgm_score: Optional[float] = Field(None, description="pg_trgm 分数")
+    qdrant_score: Optional[float] = Field(None, description="Qdrant 向量分数")
 
 
 class RetrieveEvidenceOutput(BaseModel):
@@ -257,7 +260,8 @@ class RetrieveEvidenceOutput(BaseModel):
     items: List[EvidenceItem]
     total: int
     query: str
-    search_method: str = Field("trgm", description="搜索方法：trgm 或 like")
+    strategy: str = Field("hybrid", description="检索策略: trgm/qdrant/hybrid")
+    search_method: str = Field("trgm", description="[已废弃] 使用 strategy")
     score_distribution: Optional[Dict[str, Any]] = Field(None, description="分数分布统计")
 
 

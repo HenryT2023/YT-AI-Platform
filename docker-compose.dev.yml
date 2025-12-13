@@ -41,6 +41,22 @@ services:
       timeout: 3s
       retries: 5
 
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: yantian-qdrant-dev
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_dev_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # -----------------
   # 应用服务
   # -----------------
@@ -61,10 +77,14 @@ services:
       - DEBUG=true
       - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
       - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-yantian_evidence}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     command: >
       sh -c "
@@ -126,6 +146,8 @@ volumes:
   postgres_dev_data:
     driver: local
   redis_dev_data:
+    driver: local
+  qdrant_dev_data:
     driver: local
 
 # -----------------
