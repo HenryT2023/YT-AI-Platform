@@ -1,0 +1,39 @@
+{
+  "name": "@yantian/admin-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "严田 AI 文明引擎 - 运营后台",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@tanstack/react-query": "^5.17.0",
+    "axios": "^1.6.0",
+    "zustand": "^4.5.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0",
+    "lucide-react": "^0.312.0",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.3.0",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-toast": "^1.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.1.0"
+  }
+}
