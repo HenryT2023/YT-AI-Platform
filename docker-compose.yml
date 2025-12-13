@@ -1,0 +1,211 @@
+# ===========================
+# 严田 AI 文明引擎 Docker Compose
+# ===========================
+# 用于本地开发和测试环境
+
+version: "3.9"
+
+services:
+  # -----------------
+  # 基础设施
+  # -----------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: yantian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-yantian}
+      POSTGRES_USER: ${POSTGRES_USER:-yantian}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yantian_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yantian}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: yantian-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: yantian-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  # -----------------
+  # 应用服务
+  # -----------------
+  core-backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: development
+    container_name: yantian-core-backend
+    restart: unless-stopped
+    ports:
+      - "${CORE_BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./services/core-backend:/app
+      - ./packages:/packages:ro
+      - ./data:/data:ro
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  ai-orchestrator:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: development
+      args:
+        SERVICE_PATH: services/ai-orchestrator
+    container_name: yantian-ai-orchestrator
+    restart: unless-stopped
+    ports:
+      - "${AI_ORCHESTRATOR_PORT:-8001}:8001"
+    volumes:
+      - ./services/ai-orchestrator:/app
+      - ./packages:/packages:ro
+      - ./data:/data:ro
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - CORE_BACKEND_URL=http://core-backend:8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+    depends_on:
+      - redis
+      - qdrant
+      - core-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    container_name: yantian-worker
+    restart: unless-stopped
+    volumes:
+      - ./services/worker:/app
+      - ./packages:/packages:ro
+      - ./data:/data
+    environment:
+      - ENV=development
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info
+
+  admin-console:
+    build:
+      context: .
+      dockerfile: docker/admin.Dockerfile
+      target: development
+    container_name: yantian-admin-console
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_CONSOLE_PORT:-3000}:3000"
+    volumes:
+      - ./apps/admin-console:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:${CORE_BACKEND_PORT:-8000}
+      - NEXT_PUBLIC_AI_API_URL=http://localhost:${AI_ORCHESTRATOR_PORT:-8001}
+    depends_on:
+      - core-backend
+      - ai-orchestrator
+    command: npm run dev
+
+  # -----------------
+  # 可选服务（Phase 2）
+  # -----------------
+  # mqtt-broker:
+  #   image: eclipse-mosquitto:2
+  #   container_name: yantian-mqtt
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1883:1883"
+  #     - "9001:9001"
+  #   volumes:
+  #     - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+  #     - mqtt_data:/mosquitto/data
+
+  # iot-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/backend.Dockerfile
+  #     args:
+  #       SERVICE_PATH: services/iot-gateway
+  #   container_name: yantian-iot-gateway
+  #   depends_on:
+  #     - mqtt-broker
+  #     - redis
+
+# -----------------
+# 数据卷
+# -----------------
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  # mqtt_data:
+  #   driver: local
+
+# -----------------
+# 网络
+# -----------------
+networks:
+  default:
+    name: yantian-network
+    driver: bridge

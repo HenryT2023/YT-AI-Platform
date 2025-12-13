@@ -1,0 +1,36 @@
+[project]
+name = "yantian-worker"
+version = "0.1.0"
+description = "严田 AI 文明引擎 - 异步任务服务"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Yantian Team" }]
+dependencies = [
+    "celery[redis]>=5.3.0",
+    "sqlalchemy>=2.0.25",
+    "asyncpg>=0.29.0",
+    "redis>=5.0.0",
+    "httpx>=0.26.0",
+    "openai>=1.10.0",
+    "qdrant-client>=1.7.0",
+    "structlog>=24.1.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-celery>=0.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

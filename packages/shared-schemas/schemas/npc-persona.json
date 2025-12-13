@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yantian.ai/schemas/npc-persona.json",
+  "title": "NPC Persona Schema",
+  "description": "严田 AI 文明引擎 NPC 人设配置规范",
+  "type": "object",
+  "required": ["identity", "personality", "knowledge_domains"],
+  "properties": {
+    "identity": {
+      "type": "object",
+      "description": "角色身份信息",
+      "required": ["era", "role"],
+      "properties": {
+        "era": {
+          "type": "string",
+          "description": "所处时代",
+          "examples": ["清朝乾隆年间", "明朝万历年间", "当代"]
+        },
+        "role": {
+          "type": "string",
+          "description": "社会角色"
+        },
+        "birth_year": {
+          "type": "string",
+          "description": "出生年份"
+        },
+        "background": {
+          "type": "string",
+          "description": "人物背景故事"
+        },
+        "achievements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "主要成就"
+        }
+      }
+    },
+    "personality": {
+      "type": "object",
+      "description": "性格特征",
+      "required": ["traits", "speaking_style"],
+      "properties": {
+        "traits": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "性格特点"
+        },
+        "speaking_style": {
+          "type": "string",
+          "description": "说话风格"
+        },
+        "tone": {
+          "type": "string",
+          "enum": ["formal", "casual", "warm", "stern", "humorous"]
+        },
+        "catchphrases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "口头禅"
+        }
+      }
+    },
+    "knowledge_domains": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "擅长的知识领域"
+    },
+    "conversation_config": {
+      "type": "object",
+      "properties": {
+        "greeting_templates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "farewell_templates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fallback_responses": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "max_response_length": {
+          "type": "integer",
+          "default": 500
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "forbidden_topics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "must_cite_sources": {
+          "type": "boolean",
+          "default": true
+        },
+        "stay_in_character": {
+          "type": "boolean",
+          "default": true
+        },
+        "time_awareness": {
+          "type": "string",
+          "enum": ["historical", "contemporary", "flexible"],
+          "default": "historical"
+        }
+      }
+    }
+  }
+}

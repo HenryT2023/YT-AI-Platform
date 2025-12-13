@@ -1,0 +1,20 @@
+{
+  "name": "@yantian/shared-schemas",
+  "version": "0.1.0",
+  "description": "严田 AI 文明引擎 - 共享 JSON Schema 定义",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "validate": "ajv validate -s schemas/*.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "ajv": "^8.12.0",
+    "ajv-cli": "^5.0.0"
+  }
+}

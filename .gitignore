@@ -1,0 +1,207 @@
+# ===========================
+# 严田 AI 文明引擎 .gitignore
+# ===========================
+
+# -----------------
+# Python
+# -----------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.env.*.local
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# -----------------
+# Node.js
+# -----------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+.next/
+.nuxt/
+.output/
+out/
+
+# -----------------
+# IDE & Editors
+# -----------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# -----------------
+# OS
+# -----------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.bak
+*.tmp
+*.temp
+
+# -----------------
+# Environment & Secrets
+# -----------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+secrets/
+.secrets/
+
+# -----------------
+# Docker
+# -----------------
+docker-compose.override.yml
+.docker/
+
+# -----------------
+# Database
+# -----------------
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+pg_data/
+redis_data/
+mongo_data/
+
+# -----------------
+# Logs
+# -----------------
+logs/
+*.log
+log/
+
+# -----------------
+# Media & Uploads
+# -----------------
+uploads/
+media/
+static/uploads/
+
+# -----------------
+# Vector DB
+# -----------------
+qdrant_data/
+chroma_data/
+.chromadb/
+
+# -----------------
+# Celery
+# -----------------
+celerybeat-schedule
+celerybeat.pid
+
+# -----------------
+# Terraform
+# -----------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# -----------------
+# Kubernetes
+# -----------------
+kubeconfig
+*.kubeconfig
+
+# -----------------
+# Project specific
+# -----------------
+# Large knowledge base files (use Git LFS or external storage)
+data/knowledge/*.pdf
+data/knowledge/*.docx
+data/assets/*.mp4
+data/assets/*.wav
+data/assets/*.mp3
+
+# Generated files
+*.generated.*
+.cache/

@@ -1,0 +1,164 @@
+{
+  "site": {
+    "id": "yantian-main",
+    "name": "严田古村",
+    "display_name": "严田 · 千年古村",
+    "description": "严田古村位于江西省婺源县，是一座拥有千年历史的徽派古村落，以严氏宗族文化和徽派建筑闻名。",
+    "config": {
+      "features": {
+        "ai_guide": true,
+        "night_tour": false,
+        "farming_engine": true
+      },
+      "llm": {
+        "provider": "openai",
+        "model": "gpt-4o"
+      }
+    },
+    "theme": {
+      "primary_color": "#8B4513",
+      "secondary_color": "#F5F5DC"
+    },
+    "location_lat": 29.2833,
+    "location_lng": 117.8667,
+    "timezone": "Asia/Shanghai"
+  },
+  "scenes": [
+    {
+      "name": "village_entrance",
+      "display_name": "村口牌坊",
+      "description": "严田古村入口，矗立着明代石牌坊",
+      "scene_type": "entrance",
+      "sort_order": 1
+    },
+    {
+      "name": "ancestral_hall",
+      "display_name": "严氏宗祠",
+      "description": "严氏家族祭祀祖先的宗祠，始建于明朝",
+      "scene_type": "building",
+      "sort_order": 2
+    },
+    {
+      "name": "ancient_well",
+      "display_name": "千年古井",
+      "description": "村中心的古井，相传有千年历史",
+      "scene_type": "landmark",
+      "sort_order": 3
+    },
+    {
+      "name": "scholar_house",
+      "display_name": "耕读堂",
+      "description": "古代私塾，传承耕读传家的理念",
+      "scene_type": "building",
+      "sort_order": 4
+    },
+    {
+      "name": "craft_workshop",
+      "display_name": "匠人坊",
+      "description": "展示徽州传统手工艺的工坊",
+      "scene_type": "building",
+      "sort_order": 5
+    }
+  ],
+  "npcs": [
+    {
+      "name": "ancestor_yan",
+      "display_name": "严氏先祖",
+      "npc_type": "ancestor",
+      "persona": {
+        "identity": {
+          "era": "清朝乾隆年间",
+          "role": "严氏第十八代族长",
+          "background": "自幼聪颖，十五岁中秀才，后弃文从商，经营徽州茶叶生意。晚年回归故里，主持修缮祠堂，编纂族谱。"
+        },
+        "personality": {
+          "traits": ["睿智", "严谨", "慈祥"],
+          "speaking_style": "文言与白话混用，常引用祖训",
+          "tone": "warm",
+          "catchphrases": ["吾严氏家训有云……", "祖宗之法，不可轻废"]
+        },
+        "knowledge_domains": ["严氏家族历史", "祖训家规", "徽商文化", "徽派建筑"],
+        "conversation_config": {
+          "greeting_templates": [
+            "后生来了？老夫正在此处候着。有何疑问，但说无妨。"
+          ],
+          "fallback_responses": [
+            "此事老夫亦不甚了了，或可询问村中老人。"
+          ],
+          "max_response_length": 500
+        },
+        "constraints": {
+          "forbidden_topics": ["政治敏感", "宗教争议"],
+          "must_cite_sources": true,
+          "time_awareness": "historical"
+        }
+      }
+    },
+    {
+      "name": "woodcarver_master",
+      "display_name": "木雕师傅",
+      "npc_type": "craftsman",
+      "persona": {
+        "identity": {
+          "era": "当代",
+          "role": "徽州木雕非遗传承人",
+          "background": "十六岁拜师学艺，从事木雕四十余年。擅长人物、花鸟雕刻。"
+        },
+        "personality": {
+          "traits": ["朴实", "专注", "热情"],
+          "speaking_style": "朴实直白，常用行话术语",
+          "tone": "casual",
+          "catchphrases": ["这刀法嘛，讲究的是……", "慢工出细活"]
+        },
+        "knowledge_domains": ["徽州木雕技艺", "木材知识", "雕刻工具"],
+        "conversation_config": {
+          "greeting_templates": [
+            "来了啊！想学木雕？先坐下，我给你讲讲。"
+          ],
+          "fallback_responses": [
+            "这个我不太清楚，我只懂木雕这一行。"
+          ],
+          "max_response_length": 400
+        },
+        "constraints": {
+          "forbidden_topics": ["政治敏感"],
+          "must_cite_sources": false,
+          "time_awareness": "contemporary"
+        }
+      }
+    }
+  ],
+  "quests": [
+    {
+      "name": "discover_yantian",
+      "display_name": "初识严田",
+      "description": "探索严田古村的基础任务，了解村落历史和主要景点",
+      "quest_type": "exploration",
+      "difficulty": "easy",
+      "rewards": {
+        "points": 100,
+        "badges": ["初来乍到"]
+      },
+      "steps": [
+        {
+          "step_number": 1,
+          "name": "参观村口牌坊",
+          "step_type": "visit",
+          "scene_name": "village_entrance"
+        },
+        {
+          "step_number": 2,
+          "name": "拜访严氏宗祠",
+          "step_type": "visit",
+          "scene_name": "ancestral_hall"
+        },
+        {
+          "step_number": 3,
+          "name": "与先祖对话",
+          "step_type": "talk",
+          "npc_name": "ancestor_yan"
+        }
+      ]
+    }
+  ]
+}

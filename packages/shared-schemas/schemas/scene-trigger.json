@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yantian.ai/schemas/scene-trigger.json",
+  "title": "Scene Trigger Schema",
+  "description": "严田 AI 文明引擎场景触发规则配置规范",
+  "type": "object",
+  "required": ["trigger_type", "conditions", "actions"],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "trigger_type": {
+      "type": "string",
+      "enum": ["time", "location", "event", "sensor", "manual", "solar_term"]
+    },
+    "priority": {
+      "type": "integer",
+      "default": 0
+    },
+    "conditions": {
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "object",
+          "properties": {
+            "start_time": { "type": "string", "format": "time" },
+            "end_time": { "type": "string", "format": "time" },
+            "days_of_week": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0, "maximum": 6 }
+            }
+          }
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "scene_id": { "type": "string", "format": "uuid" },
+            "poi_id": { "type": "string", "format": "uuid" },
+            "radius_meters": { "type": "number" }
+          }
+        },
+        "solar_term": {
+          "type": "object",
+          "properties": {
+            "term": {
+              "type": "string",
+              "enum": [
+                "立春", "雨水", "惊蛰", "春分", "清明", "谷雨",
+                "立夏", "小满", "芒种", "夏至", "小暑", "大暑",
+                "立秋", "处暑", "白露", "秋分", "寒露", "霜降",
+                "立冬", "小雪", "大雪", "冬至", "小寒", "大寒"
+              ]
+            },
+            "days_before": { "type": "integer" },
+            "days_after": { "type": "integer" }
+          }
+        },
+        "visitor": {
+          "type": "object",
+          "properties": {
+            "first_visit": { "type": "boolean" },
+            "visit_count_min": { "type": "integer" },
+            "tags": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action_type"],
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "enum": ["push_notification", "play_audio", "show_npc", "update_lighting", "trigger_quest"]
+          },
+          "params": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
