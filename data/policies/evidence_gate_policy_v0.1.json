@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "0.1.0",
+  "description": "Evidence Gate 策略配置 - 支持 per-site/per-npc 差异化配置",
+  "updated_at": "2024-12-13T21:55:00Z",
+
+  "defaults": {
+    "min_citations": 1,
+    "min_score": 0.3,
+    "max_soft_claims": 2,
+    "allowed_soft_claims": [
+      "据说",
+      "相传",
+      "传说",
+      "据老人们说",
+      "村里流传",
+      "民间说法"
+    ],
+    "fallback_templates": {
+      "fact_seeking": "这个问题涉及具体的历史事实，{npc_name}需要查阅族谱或文献才能准确回答。建议您询问村中管理族谱的长辈，或查阅相关史料记载。",
+      "out_of_scope": "这个问题超出了{npc_name}的知识范围。如果您想了解严田村的历史文化，{npc_name}很乐意为您介绍。",
+      "default": "关于这个问题，{npc_name}不太确定具体细节。如果您想了解准确的历史信息，建议查阅相关文献记载。"
+    },
+    "strict_mode": false,
+    "allow_memory_for_preference": true
+  },
+
+  "sites": {
+    "yantian-main": {
+      "description": "严田村主站点",
+      "min_citations": 1,
+      "min_score": 0.3,
+      "npcs": {
+        "ancestor_yan": {
+          "description": "严氏先祖 - 族谱权威，要求严格",
+          "min_citations": 2,
+          "min_score": 0.5,
+          "max_soft_claims": 1,
+          "strict_mode": true,
+          "allowed_soft_claims": [
+            "据族谱记载",
+            "先祖传下来的说法"
+          ],
+          "fallback_templates": {
+            "fact_seeking": "此事涉及族中史实，{npc_name}须查阅族谱方能作答。族谱乃严氏根本，不可妄言。",
+            "out_of_scope": "此事非{npc_name}所知。若问严氏渊源，{npc_name}倒可细细道来。",
+            "default": "此事{npc_name}不甚了了，恐有谬误，不敢妄言。"
+          }
+        },
+        "farmer_li": {
+          "description": "老农李伯 - 农耕知识，可以宽松",
+          "min_citations": 1,
+          "min_score": 0.25,
+          "max_soft_claims": 3,
+          "strict_mode": false,
+          "allowed_soft_claims": [
+            "据说",
+            "相传",
+            "老辈人讲",
+            "我听说",
+            "村里人都说"
+          ],
+          "fallback_templates": {
+            "fact_seeking": "这个嘛，{npc_name}种了一辈子地，历史上的事儿还真不太清楚。你问问祠堂那边的老人家吧。",
+            "out_of_scope": "哎呀，这个{npc_name}可不懂。要说种地、看天气，{npc_name}倒是有些心得。",
+            "default": "这个{npc_name}也说不准，怕说错了误导你。"
+          }
+        },
+        "craftsman_wang": {
+          "description": "工匠王师傅 - 建筑工艺，中等严格",
+          "min_citations": 1,
+          "min_score": 0.35,
+          "max_soft_claims": 2,
+          "strict_mode": false,
+          "allowed_soft_claims": [
+            "据说",
+            "相传",
+            "老师傅们说",
+            "按老规矩"
+          ],
+          "fallback_templates": {
+            "fact_seeking": "这个得看老图纸才知道，{npc_name}手艺是祖传的，但具体年份还真记不清了。",
+            "out_of_scope": "这个{npc_name}不太懂。要说木工、石雕的手艺，{npc_name}倒可以聊聊。",
+            "default": "这个{npc_name}不敢乱说，怕说错了。"
+          }
+        }
+      }
+    },
+    "demo-site": {
+      "description": "演示站点 - 宽松配置",
+      "min_citations": 0,
+      "min_score": 0.2,
+      "max_soft_claims": 5,
+      "strict_mode": false,
+      "npcs": {}
+    }
+  },
+
+  "intent_overrides": {
+    "greeting": {
+      "min_citations": 0,
+      "requires_evidence": false
+    },
+    "clarification": {
+      "min_citations": 0,
+      "requires_evidence": false
+    },
+    "context_preference": {
+      "min_citations": 0,
+      "requires_evidence": false,
+      "requires_filtering": true
+    }
+  },
+
+  "audit": {
+    "log_policy_version": true,
+    "log_applied_rule": true,
+    "log_soft_claims_used": true
+  }
+}
