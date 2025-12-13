@@ -31,6 +31,14 @@ class TraceCreate(BaseModel):
     policy_mode: str = Field(..., description="策略模式：strict/normal/relaxed/fallback")
     policy_reason: Optional[str] = None
     started_at: datetime
+    
+    # P24.1 实验字段
+    experiment_id: Optional[str] = Field(None, description="实验 ID")
+    experiment_variant: Optional[str] = Field(None, description="实验分桶")
+    strategy_snapshot: Dict[str, Any] = Field(default_factory=dict, description="策略快照")
+    
+    # P27 Release 字段
+    release_id: Optional[str] = Field(None, description="Release ID")
 
 
 class TraceUpdate(BaseModel):
@@ -73,6 +81,14 @@ class TraceResponse(BaseModel):
     started_at: datetime
     completed_at: Optional[datetime]
     created_at: datetime
+    
+    # P24.1 实验字段
+    experiment_id: Optional[str] = None
+    experiment_variant: Optional[str] = None
+    strategy_snapshot: Dict[str, Any] = {}
+    
+    # P27 Release 字段
+    release_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -97,10 +113,11 @@ async def list_traces(
     npc_id: Optional[str] = Query(None),
     policy_mode: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    release_id: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> List[TraceLedger]:
-    """获取追踪记录列表"""
+    """获取追踪记录列表（支持按 release_id 过滤）"""
     stmt = select(TraceLedger)
 
     if session_id:
@@ -111,6 +128,8 @@ async def list_traces(
         stmt = stmt.where(TraceLedger.policy_mode == policy_mode)
     if status:
         stmt = stmt.where(TraceLedger.status == status)
+    if release_id:
+        stmt = stmt.where(TraceLedger.release_id == release_id)
 
     stmt = stmt.order_by(TraceLedger.created_at.desc())
     stmt = stmt.offset(skip).limit(limit)
@@ -158,6 +177,10 @@ async def create_trace(
         policy_mode=data.policy_mode,
         policy_reason=data.policy_reason,
         started_at=data.started_at,
+        experiment_id=data.experiment_id,
+        experiment_variant=data.experiment_variant,
+        strategy_snapshot=data.strategy_snapshot,
+        release_id=data.release_id,
     )
     ts.add(trace)
     await ts.flush()

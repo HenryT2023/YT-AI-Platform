@@ -15,12 +15,14 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select, and_, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.core.admin_auth import require_internal_api_key, get_operator
+from app.core.audit import log_audit, AuditAction, TargetType
 from app.database.models.user_feedback import (
     UserFeedback,
     FeedbackType,
@@ -78,6 +80,15 @@ class FeedbackResponse(BaseModel):
     site_id: str
     created_at: datetime
     updated_at: datetime
+    
+    # P23 新增
+    assignee: Optional[str] = None
+    group: Optional[str] = None
+    sla_due_at: Optional[datetime] = None
+    overdue_flag: bool = False
+    triaged_at: Optional[datetime] = None
+    in_progress_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -97,8 +108,23 @@ class FeedbackReject(BaseModel):
     notes: Optional[str] = Field(None, description="拒绝原因")
 
 
+class FeedbackTriage(BaseModel):
+    """分派反馈请求"""
+    assignee: Optional[str] = Field(None, description="指定处理人")
+    group: Optional[str] = Field(None, description="指定处理组")
+    sla_hours: Optional[int] = Field(None, description="SLA 小时数（不指定则自动计算）")
+    auto_route: bool = Field(True, description="是否使用自动分派规则")
+
+
+class FeedbackStatusUpdate(BaseModel):
+    """更新反馈状态请求"""
+    status: str = Field(..., description="目标状态: triaged/in_progress/resolved/closed")
+    notes: Optional[str] = Field(None, description="备注")
+    resolver: Optional[str] = Field(None, description="解决者（resolved 状态需要）")
+
+
 class FeedbackStats(BaseModel):
-    """反馈统计"""
+    """反馈统计（增强版）"""
     total: int
     by_status: dict
     by_type: dict
@@ -107,6 +133,12 @@ class FeedbackStats(BaseModel):
     resolution_rate: float  # 解决率
     avg_resolution_time_hours: Optional[float]
     top_issues: List[dict]  # 高频问题
+    
+    # P23 新增
+    overdue_count: int = 0
+    backlog_by_status: dict = Field(default_factory=dict)
+    resolution_rate_by_assignee: dict = Field(default_factory=dict)
+    avg_time_to_resolve_by_severity: dict = Field(default_factory=dict)
 
 
 class FeedbackListResponse(BaseModel):
@@ -332,6 +364,61 @@ async def get_feedback_stats(
         for row in top_issues_result.all()
     ]
 
+    # P23 新增：overdue 统计
+    overdue_query = select(func.count(UserFeedback.id)).where(
+        and_(
+            *conditions,
+            UserFeedback.overdue_flag == True,
+        )
+    )
+    overdue_result = await db.execute(overdue_query)
+    overdue_count = overdue_result.scalar() or 0
+
+    # P23 新增：backlog（未关闭的）
+    backlog_statuses = ["new", "pending", "triaged", "in_progress"]
+    backlog_by_status = {s: by_status.get(s, 0) for s in backlog_statuses}
+
+    # P23 新增：按 assignee 统计解决率
+    assignee_query = (
+        select(
+            UserFeedback.assignee,
+            func.count(UserFeedback.id).label("total"),
+            func.sum(func.cast(UserFeedback.status == "resolved", Integer)).label("resolved"),
+        )
+        .where(and_(*conditions, UserFeedback.assignee.isnot(None)))
+        .group_by(UserFeedback.assignee)
+    )
+    assignee_result = await db.execute(assignee_query)
+    resolution_rate_by_assignee = {}
+    for row in assignee_result.all():
+        if row.total > 0:
+            resolution_rate_by_assignee[row.assignee or "unassigned"] = round(
+                (row.resolved or 0) / row.total * 100, 2
+            )
+
+    # P23 新增：按 severity 统计平均解决时间
+    severity_time_query = (
+        select(
+            UserFeedback.severity,
+            func.avg(
+                func.extract("epoch", UserFeedback.resolved_at - UserFeedback.created_at) / 3600
+            ).label("avg_hours"),
+        )
+        .where(
+            and_(
+                *conditions,
+                UserFeedback.status == "resolved",
+                UserFeedback.resolved_at.isnot(None),
+            )
+        )
+        .group_by(UserFeedback.severity)
+    )
+    severity_time_result = await db.execute(severity_time_query)
+    avg_time_to_resolve_by_severity = {
+        row.severity: round(row.avg_hours, 2) if row.avg_hours else None
+        for row in severity_time_result.all()
+    }
+
     return FeedbackStats(
         total=total,
         by_status=by_status,
@@ -341,6 +428,10 @@ async def get_feedback_stats(
         resolution_rate=resolution_rate,
         avg_resolution_time_hours=avg_resolution_time_hours,
         top_issues=top_issues,
+        overdue_count=overdue_count,
+        backlog_by_status=backlog_by_status,
+        resolution_rate_by_assignee=resolution_rate_by_assignee,
+        avg_time_to_resolve_by_severity=avg_time_to_resolve_by_severity,
     )
 
 
@@ -436,5 +527,156 @@ async def reject_feedback(
     await db.refresh(feedback)
 
     log.info("feedback_rejected", notes=request.notes)
+
+    return FeedbackResponse.model_validate(feedback)
+
+
+# ============================================================
+# P23 新增：工单化 API
+# ============================================================
+
+@router.post("/{feedback_id}/triage", response_model=FeedbackResponse)
+async def triage_feedback(
+    feedback_id: str,
+    request: FeedbackTriage,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_internal_api_key),
+):
+    """
+    分派反馈（需要鉴权）
+    
+    应用自动分派规则（或手动指定），设置 assignee/group 和 SLA
+    """
+    from app.core.feedback_routing import get_routing_for_feedback
+    
+    log = logger.bind(feedback_id=feedback_id)
+
+    query = select(UserFeedback).where(UserFeedback.id == feedback_id)
+    result = await db.execute(query)
+    feedback = result.scalar_one_or_none()
+
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Feedback not found: {feedback_id}",
+        )
+
+    # 确定分派参数
+    if request.auto_route and not request.assignee and not request.group:
+        # 使用自动分派规则
+        routing = get_routing_for_feedback(
+            severity=feedback.severity,
+            feedback_type=feedback.feedback_type,
+            site_id=feedback.site_id,
+        )
+        assignee = routing.assignee
+        group = routing.group
+        sla_hours = request.sla_hours or routing.sla_hours
+    else:
+        # 手动指定
+        assignee = request.assignee
+        group = request.group
+        sla_hours = request.sla_hours or 24
+
+    feedback.triage(
+        assignee=assignee,
+        group=group,
+        sla_hours=sla_hours,
+    )
+
+    await db.commit()
+    await db.refresh(feedback)
+
+    log.info(
+        "feedback_triaged",
+        assignee=assignee,
+        group=group,
+        sla_hours=sla_hours,
+        sla_due_at=feedback.sla_due_at,
+    )
+    
+    # 记录审计日志
+    await log_audit(
+        db=db,
+        actor="admin_console",
+        action=AuditAction.FEEDBACK_TRIAGE,
+        target_type=TargetType.FEEDBACK,
+        target_id=feedback_id,
+        payload={
+            "assignee": assignee,
+            "group": group,
+            "sla_hours": sla_hours,
+        },
+    )
+
+    return FeedbackResponse.model_validate(feedback)
+
+
+@router.post("/{feedback_id}/status", response_model=FeedbackResponse)
+async def update_feedback_status(
+    feedback_id: str,
+    request: FeedbackStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_internal_api_key),
+):
+    """
+    更新反馈状态
+    
+    状态机：new/pending → triaged → in_progress → resolved → closed
+    """
+    log = logger.bind(feedback_id=feedback_id, target_status=request.status)
+
+    query = select(UserFeedback).where(UserFeedback.id == feedback_id)
+    result = await db.execute(query)
+    feedback = result.scalar_one_or_none()
+
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Feedback not found: {feedback_id}",
+        )
+
+    # 验证状态
+    valid_statuses = ["triaged", "in_progress", "resolved", "closed"]
+    if request.status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status: {request.status}. Valid: {valid_statuses}",
+        )
+
+    # 状态转换
+    if request.status == "triaged":
+        feedback.status = FeedbackStatus.TRIAGED.value
+        feedback.triaged_at = datetime.utcnow()
+    elif request.status == "in_progress":
+        feedback.start_progress()
+    elif request.status == "resolved":
+        if not request.resolver:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="resolver is required for resolved status",
+            )
+        feedback.resolve(resolver=request.resolver, notes=request.notes)
+    elif request.status == "closed":
+        feedback.close(notes=request.notes)
+
+    await db.commit()
+    await db.refresh(feedback)
+
+    log.info("feedback_status_updated", new_status=feedback.status)
+    
+    # 记录审计日志
+    await log_audit(
+        db=db,
+        actor="admin_console",
+        action=AuditAction.FEEDBACK_STATUS_UPDATE,
+        target_type=TargetType.FEEDBACK,
+        target_id=feedback_id,
+        payload={
+            "new_status": request.status,
+            "resolver": request.resolver,
+            "notes": request.notes,
+        },
+    )
 
     return FeedbackResponse.model_validate(feedback)

@@ -239,6 +239,10 @@ class ToolClient:
         latency_ms: Optional[int] = None,
         status: str = "success",
         error: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        experiment_variant: Optional[str] = None,
+        strategy_snapshot: Optional[Dict[str, Any]] = None,
+        release_id: Optional[str] = None,
     ) -> bool:
         """创建追踪记录（通过 core-backend API）"""
         log = logger.bind(trace_id=ctx.trace_id)
@@ -260,6 +264,10 @@ class ToolClient:
                         "evidence_ids": evidence_ids,
                         "policy_mode": policy_mode,
                         "started_at": datetime.utcnow().isoformat(),
+                        "experiment_id": experiment_id,
+                        "experiment_variant": experiment_variant,
+                        "strategy_snapshot": strategy_snapshot or {},
+                        "release_id": release_id,
                     },
                 )
                 response.raise_for_status()

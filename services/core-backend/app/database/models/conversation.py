@@ -107,7 +107,7 @@ class Message(Base, TenantMixin):
     trace_id: Mapped[Optional[str]] = mapped_column(String(100), index=True)
 
     # 元数据
-    metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}", nullable=False)
 
     # 时间
     created_at: Mapped[datetime] = mapped_column(server_default="now()", nullable=False)

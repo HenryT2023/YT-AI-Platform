@@ -20,6 +20,7 @@ import hashlib
 import sys
 import time
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -38,7 +39,11 @@ logger = structlog.get_logger(__name__)
 # 配置
 # ============================================================
 
-DATABASE_URL = "postgresql+asyncpg://yantian:yantian@localhost:5432/yantian"
+import os
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    f"postgresql+asyncpg://yantian:{os.environ.get('POSTGRES_PASSWORD', 'yantian_dev_password')}@localhost:5432/yantian"
+)
 QDRANT_URL = "http://localhost:6333"
 QDRANT_COLLECTION = "yantian_evidence"
 BATCH_SIZE = 50
@@ -49,9 +54,34 @@ VECTOR_DIM = 1024
 # Embedding 获取
 # ============================================================
 
-async def get_embedding(text: str, settings: Dict[str, str]) -> Optional[List[float]]:
-    """获取文本向量"""
+@dataclass
+class EmbeddingResult:
+    """Embedding 调用结果"""
+    embedding: Optional[List[float]] = None
+    provider: str = ""
+    model: str = ""
+    embedding_dim: int = 0
+    input_chars: int = 0
+    estimated_tokens: int = 0
+    latency_ms: int = 0
+    status: str = "failed"
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    backoff_seconds: Optional[int] = None
+
+
+def estimate_tokens(text: str) -> int:
+    """估算 token 数量（粗略：1.5 字符/token）"""
+    return max(1, len(text) // 2)
+
+
+async def get_embedding_with_audit(text: str, settings: Dict[str, str]) -> EmbeddingResult:
+    """获取文本向量（带审计信息）"""
     import httpx
+
+    input_chars = len(text)
+    estimated_tokens = estimate_tokens(text)
+    start_time = time.time()
 
     # 优先使用 OpenAI
     openai_key = settings.get("OPENAI_API_KEY", "")
@@ -69,13 +99,107 @@ async def get_embedding(text: str, settings: Dict[str, str]) -> Optional[List[fl
                         "input": text[:8000],
                     },
                 )
+                latency_ms = int((time.time() - start_time) * 1000)
                 if resp.status_code == 200:
                     data = resp.json()
-                    return data["data"][0]["embedding"]
+                    embedding = data["data"][0]["embedding"]
+                    return EmbeddingResult(
+                        embedding=embedding,
+                        provider="openai",
+                        model="text-embedding-3-small",
+                        embedding_dim=len(embedding),
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="success",
+                    )
+                elif resp.status_code == 429:
+                    return EmbeddingResult(
+                        provider="openai",
+                        model="text-embedding-3-small",
+                        embedding_dim=0,
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="rate_limited",
+                        error_type="rate_limit",
+                        backoff_seconds=60,
+                    )
+                else:
+                    return EmbeddingResult(
+                        provider="openai",
+                        model="text-embedding-3-small",
+                        embedding_dim=0,
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="failed",
+                        error_type="api_error",
+                        error_message=resp.text[:200],
+                    )
         except Exception as e:
             logger.error("openai_embedding_error", error=str(e))
 
-    # 回退：Baidu
+    # 回退：Baidu BCE API Key 格式 (bce-v3/ALTAK-xxx/secret)
+    baidu_bce_key = settings.get("BAIDU_BCE_KEY", "")
+    if baidu_bce_key and baidu_bce_key.startswith("bce-v3/"):
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                embed_resp = await client.post(
+                    "https://qianfan.baidubce.com/v2/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {baidu_bce_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "bge-large-zh",
+                        "input": [text[:1000]],
+                    },
+                )
+                latency_ms = int((time.time() - start_time) * 1000)
+                if embed_resp.status_code == 200:
+                    data = embed_resp.json()
+                    if "data" in data and len(data["data"]) > 0:
+                        embedding = data["data"][0]["embedding"]
+                        return EmbeddingResult(
+                            embedding=embedding,
+                            provider="baidu",
+                            model="bge-large-zh",
+                            embedding_dim=len(embedding),
+                            input_chars=input_chars,
+                            estimated_tokens=estimated_tokens,
+                            latency_ms=latency_ms,
+                            status="success",
+                        )
+                elif embed_resp.status_code == 429:
+                    return EmbeddingResult(
+                        provider="baidu",
+                        model="bge-large-zh",
+                        embedding_dim=0,
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="rate_limited",
+                        error_type="rate_limit",
+                        backoff_seconds=60,
+                    )
+                else:
+                    logger.warning("baidu_bce_embedding_failed", status=embed_resp.status_code, body=embed_resp.text[:200])
+                    return EmbeddingResult(
+                        provider="baidu",
+                        model="bge-large-zh",
+                        embedding_dim=0,
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="failed",
+                        error_type="api_error",
+                        error_message=embed_resp.text[:200],
+                    )
+        except Exception as e:
+            logger.error("baidu_bce_embedding_error", error=str(e))
+
+    # 回退：Baidu OAuth 格式
     baidu_key = settings.get("BAIDU_API_KEY", "")
     baidu_secret = settings.get("BAIDU_SECRET_KEY", "")
     if baidu_key and baidu_secret:
@@ -90,27 +214,139 @@ async def get_embedding(text: str, settings: Dict[str, str]) -> Optional[List[fl
                     },
                 )
                 if token_resp.status_code != 200:
-                    return None
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    return EmbeddingResult(
+                        provider="baidu",
+                        model="embedding-v1",
+                        embedding_dim=0,
+                        input_chars=input_chars,
+                        estimated_tokens=estimated_tokens,
+                        latency_ms=latency_ms,
+                        status="failed",
+                        error_type="auth_error",
+                    )
                 access_token = token_resp.json().get("access_token")
 
                 embed_resp = await client.post(
                     f"https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings/embedding-v1?access_token={access_token}",
                     json={"input": [text[:1000]]},
                 )
+                latency_ms = int((time.time() - start_time) * 1000)
                 if embed_resp.status_code == 200:
                     data = embed_resp.json()
                     if "data" in data and len(data["data"]) > 0:
-                        return data["data"][0]["embedding"]
+                        embedding = data["data"][0]["embedding"]
+                        return EmbeddingResult(
+                            embedding=embedding,
+                            provider="baidu",
+                            model="embedding-v1",
+                            embedding_dim=len(embedding),
+                            input_chars=input_chars,
+                            estimated_tokens=estimated_tokens,
+                            latency_ms=latency_ms,
+                            status="success",
+                        )
         except Exception as e:
             logger.error("baidu_embedding_error", error=str(e))
 
-    return None
+    # 无可用 provider
+    latency_ms = int((time.time() - start_time) * 1000) if 'start_time' in dir() else 0
+    return EmbeddingResult(
+        provider="none",
+        model="none",
+        embedding_dim=0,
+        input_chars=input_chars,
+        estimated_tokens=estimated_tokens,
+        latency_ms=latency_ms,
+        status="failed",
+        error_type="no_provider",
+    )
 
 
 def compute_content_hash(title: Optional[str], excerpt: str) -> str:
     """计算内容 hash"""
     content = f"{title or ''}\n{excerpt}"
     return hashlib.sha256(content.encode()).hexdigest()
+
+
+# Embedding 定价表 (USD per 1K tokens)
+EMBEDDING_PRICING = {
+    "openai": {"text-embedding-3-small": 0.00002, "text-embedding-3-large": 0.00013},
+    "baidu": {"bge-large-zh": 0.0001, "embedding-v1": 0.0001},
+    "dedup": {"hash_check": 0.0},
+    "none": {"none": 0.0},
+}
+
+
+def calculate_cost(provider: str, model: str, tokens: int) -> float:
+    """计算成本估算 (USD)"""
+    provider_prices = EMBEDDING_PRICING.get(provider, {})
+    price_per_1k = provider_prices.get(model, 0.0001)
+    return (tokens / 1000) * price_per_1k
+
+
+async def record_embedding_usage(
+    session: AsyncSession,
+    tenant_id: str,
+    site_id: Optional[str],
+    object_type: str,
+    object_id: str,
+    provider: str,
+    model: str,
+    embedding_dim: int,
+    input_chars: int,
+    estimated_tokens: int,
+    latency_ms: int,
+    status: str,
+    error_type: Optional[str] = None,
+    error_message: Optional[str] = None,
+    backoff_seconds: Optional[int] = None,
+    content_hash: Optional[str] = None,
+    job_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+) -> None:
+    """记录 embedding 使用审计"""
+    from sqlalchemy import text
+    
+    cost_estimate = calculate_cost(provider, model, estimated_tokens)
+    
+    await session.execute(
+        text("""
+            INSERT INTO embedding_usage (
+                tenant_id, site_id, object_type, object_id,
+                provider, model, embedding_dim,
+                input_chars, estimated_tokens, cost_estimate,
+                latency_ms, status, error_type, error_message,
+                backoff_seconds, content_hash, job_id, trace_id
+            ) VALUES (
+                :tenant_id, :site_id, :object_type, :object_id,
+                :provider, :model, :embedding_dim,
+                :input_chars, :estimated_tokens, :cost_estimate,
+                :latency_ms, :status, :error_type, :error_message,
+                :backoff_seconds, :content_hash, :job_id, :trace_id
+            )
+        """),
+        {
+            "tenant_id": tenant_id,
+            "site_id": site_id,
+            "object_type": object_type,
+            "object_id": object_id,
+            "provider": provider,
+            "model": model,
+            "embedding_dim": embedding_dim,
+            "input_chars": input_chars,
+            "estimated_tokens": estimated_tokens,
+            "cost_estimate": cost_estimate,
+            "latency_ms": latency_ms,
+            "status": status,
+            "error_type": error_type,
+            "error_message": error_message[:500] if error_message else None,
+            "backoff_seconds": backoff_seconds,
+            "content_hash": content_hash,
+            "job_id": job_id,
+            "trace_id": trace_id,
+        },
+    )
 
 
 def generate_point_id(evidence_id: str) -> str:
@@ -271,9 +507,27 @@ async def sync_vectors(
                     # 计算内容 hash
                     content_hash = compute_content_hash(evidence.title, evidence.excerpt)
 
-                    # 检查是否需要更新
+                    # 检查是否需要更新（去重）
                     if evidence.vector_hash == content_hash:
                         stats["skip"] += 1
+                        # 记录 dedup_hit
+                        if not dry_run:
+                            await record_embedding_usage(
+                                session=session,
+                                tenant_id=evidence.tenant_id,
+                                site_id=evidence.site_id,
+                                object_type="evidence",
+                                object_id=evidence.id,
+                                provider="dedup",
+                                model="hash_check",
+                                embedding_dim=0,
+                                input_chars=len(evidence.excerpt),
+                                estimated_tokens=estimate_tokens(evidence.excerpt),
+                                latency_ms=0,
+                                status="dedup_hit",
+                                content_hash=content_hash,
+                                job_id=job_id,
+                            )
                         continue
 
                     if dry_run:
@@ -287,15 +541,39 @@ async def sync_vectors(
                     text_parts.append(evidence.excerpt)
                     text = "\n".join(text_parts)
 
-                    # 获取向量
-                    embedding = await get_embedding(text, settings)
-                    if not embedding:
+                    # 获取向量（带审计）
+                    embed_result = await get_embedding_with_audit(text, settings)
+                    
+                    # 记录 embedding_usage
+                    await record_embedding_usage(
+                        session=session,
+                        tenant_id=evidence.tenant_id,
+                        site_id=evidence.site_id,
+                        object_type="evidence",
+                        object_id=evidence.id,
+                        provider=embed_result.provider,
+                        model=embed_result.model,
+                        embedding_dim=embed_result.embedding_dim,
+                        input_chars=embed_result.input_chars,
+                        estimated_tokens=embed_result.estimated_tokens,
+                        latency_ms=embed_result.latency_ms,
+                        status=embed_result.status,
+                        error_type=embed_result.error_type,
+                        error_message=embed_result.error_message,
+                        backoff_seconds=embed_result.backoff_seconds,
+                        content_hash=content_hash,
+                        job_id=job_id,
+                    )
+                    
+                    if not embed_result.embedding:
                         stats["failure"] += 1
                         stats["errors"].append({
                             "evidence_id": evidence.id,
-                            "error": "no_embedding",
+                            "error": embed_result.status,
                         })
                         continue
+                    
+                    embedding = embed_result.embedding
 
                     # 构建 point
                     from qdrant_client.models import PointStruct
@@ -459,6 +737,7 @@ async def main():
         "OPENAI_API_KEY": args.openai_key or os.environ.get("OPENAI_API_KEY", ""),
         "BAIDU_API_KEY": args.baidu_key or os.environ.get("BAIDU_API_KEY", ""),
         "BAIDU_SECRET_KEY": args.baidu_secret or os.environ.get("BAIDU_SECRET_KEY", ""),
+        "BAIDU_BCE_KEY": os.environ.get("BAIDU_BCE_KEY", ""),
     }
 
     print(f"\n🚀 开始向量同步...")

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "0.1.0",
+  "description": "反馈自动分派规则配置",
+  "default_sla_hours": 24,
+  "default_group": "support",
+  "rules": [
+    {
+      "id": "critical_all",
+      "description": "紧急反馈 - 立即分派给值班经理",
+      "conditions": {
+        "severity": "critical"
+      },
+      "action": {
+        "assignee": "duty_manager",
+        "group": "escalation",
+        "sla_hours": 2
+      },
+      "priority": 100
+    },
+    {
+      "id": "high_fact_error",
+      "description": "高优先级事实错误 - 分派给内容团队",
+      "conditions": {
+        "severity": "high",
+        "type": "fact_error"
+      },
+      "action": {
+        "group": "content_team",
+        "sla_hours": 4
+      },
+      "priority": 90
+    },
+    {
+      "id": "high_correction",
+      "description": "高优先级纠错 - 分派给知识库团队",
+      "conditions": {
+        "severity": "high",
+        "type": "correction"
+      },
+      "action": {
+        "group": "knowledge_team",
+        "sla_hours": 8
+      },
+      "priority": 85
+    },
+    {
+      "id": "medium_missing_info",
+      "description": "中优先级信息缺失 - 分派给内容团队",
+      "conditions": {
+        "severity": "medium",
+        "type": "missing_info"
+      },
+      "action": {
+        "group": "content_team",
+        "sla_hours": 24
+      },
+      "priority": 50
+    },
+    {
+      "id": "complaint_all",
+      "description": "投诉 - 分派给客服团队",
+      "conditions": {
+        "type": "complaint"
+      },
+      "action": {
+        "group": "customer_service",
+        "sla_hours": 12
+      },
+      "priority": 80
+    },
+    {
+      "id": "low_suggestion",
+      "description": "低优先级建议 - 分派给产品团队",
+      "conditions": {
+        "severity": "low",
+        "type": "suggestion"
+      },
+      "action": {
+        "group": "product_team",
+        "sla_hours": 72
+      },
+      "priority": 20
+    },
+    {
+      "id": "default",
+      "description": "默认规则 - 分派给支持团队",
+      "conditions": {},
+      "action": {
+        "group": "support",
+        "sla_hours": 24
+      },
+      "priority": 0
+    }
+  ],
+  "site_overrides": {
+    "yantian-main": {
+      "default_group": "yantian_ops",
+      "rules_append": []
+    }
+  }
+}

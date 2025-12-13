@@ -27,6 +27,12 @@ from app.api.v1 import (
     prompts,
     feedback,
     vector_coverage,
+    embedding_usage,
+    experiments,
+    policies,
+    releases,
+    runtime_config,
+    alerts,
 )
 
 router = APIRouter()
@@ -70,3 +76,21 @@ router.include_router(feedback.router, prefix="/v1", tags=["用户反馈"])
 
 # 向量覆盖率
 router.include_router(vector_coverage.router, prefix="/v1", tags=["向量检索"])
+
+# Embedding 使用统计
+router.include_router(embedding_usage.router, prefix="/v1", tags=["Embedding监控"])
+
+# A/B 实验
+router.include_router(experiments.router, prefix="/v1", tags=["A/B实验"])
+
+# 策略管理
+router.include_router(policies.router, prefix="/v1/policies", tags=["策略管理"])
+
+# Release 发布包
+router.include_router(releases.router, prefix="/v1/releases", tags=["发布包"])
+
+# 运行态配置
+router.include_router(runtime_config.router, prefix="/v1/runtime", tags=["运行态配置"])
+
+# 告警评估
+router.include_router(alerts.router, prefix="/v1", tags=["告警监控"])

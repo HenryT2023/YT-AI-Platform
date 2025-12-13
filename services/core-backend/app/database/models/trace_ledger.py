@@ -109,13 +109,31 @@ class TraceLedger(Base, TenantMixin):
     # 状态
     status: Mapped[str] = mapped_column(String(20), server_default="success", nullable=False, index=True)
 
+    # ============================================================
+    # A/B 实验字段（P24 新增）
+    # ============================================================
+    experiment_id: Mapped[Optional[str]] = mapped_column(
+        PG_UUID(as_uuid=False),
+        index=True,
+    )
+    experiment_variant: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    strategy_snapshot: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    
+    # ============================================================
+    # Release 字段（P27 新增）
+    # ============================================================
+    release_id: Mapped[Optional[str]] = mapped_column(
+        PG_UUID(as_uuid=False),
+        index=True,
+    )
+
     # 时间
     started_at: Mapped[datetime] = mapped_column(nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(server_default="now()", nullable=False)
 
     # 元数据
-    metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}", nullable=False)
 
     def __repr__(self) -> str:
         return f"<TraceLedger(trace_id={self.trace_id}, policy_mode={self.policy_mode})>"

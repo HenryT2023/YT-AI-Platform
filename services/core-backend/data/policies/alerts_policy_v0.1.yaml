@@ -1,0 +1,311 @@
+# 告警策略配置 v0.1
+# 用于灰度上线前的运维监控
+
+version: "0.1"
+description: "严田平台告警策略 - 灰度上线版"
+
+# 全局配置
+global:
+  default_window: "15m"  # 默认评估窗口
+  webhook_timeout_seconds: 5
+  max_alerts_per_evaluation: 50
+
+# 告警规则定义
+rules:
+  # ============================================================
+  # Health 健康检查类
+  # ============================================================
+  - code: "health.core_backend_down"
+    name: "Core Backend 服务不可用"
+    category: "health"
+    severity: "critical"
+    description: "Core Backend 健康检查失败"
+    metric: "healthz.status"
+    condition: "!= healthy"
+    threshold: null
+    window: "1m"
+    recommended_actions:
+      - "检查 core-backend 容器状态: kubectl get pods -l app=core-backend"
+      - "查看日志: kubectl logs -l app=core-backend --tail=100"
+      - "检查数据库连接: GET /v1/healthz"
+      - "如需紧急恢复，考虑重启服务"
+
+  - code: "health.qdrant_down"
+    name: "Qdrant 向量数据库不可用"
+    category: "health"
+    severity: "critical"
+    description: "Qdrant 健康检查失败或连接超时"
+    metric: "qdrant.status"
+    condition: "!= healthy"
+    threshold: null
+    window: "1m"
+    recommended_actions:
+      - "检查 Qdrant 服务状态"
+      - "查看 Qdrant 日志"
+      - "检查网络连通性"
+      - "如 Qdrant 不可用，系统将降级到 trgm 检索"
+
+  - code: "health.redis_down"
+    name: "Redis 缓存不可用"
+    category: "health"
+    severity: "high"
+    description: "Redis 连接失败"
+    metric: "redis.status"
+    condition: "!= healthy"
+    threshold: null
+    window: "1m"
+    recommended_actions:
+      - "检查 Redis 服务状态"
+      - "查看 Redis 日志"
+      - "系统可降级运行，但会话缓存和限流将失效"
+
+  # ============================================================
+  # LLM 大模型类
+  # ============================================================
+  - code: "llm.success_rate_low"
+    name: "LLM 调用成功率过低"
+    category: "llm"
+    severity: "critical"
+    description: "LLM API 调用成功率低于阈值"
+    metric: "llm.success_rate"
+    condition: "<"
+    threshold: 95.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查 LLM Provider 状态: 阿里云/OpenAI 控制台"
+      - "查看 trace_ledger 中的错误详情"
+      - "考虑切换到备用 LLM Provider"
+      - "如持续失败，考虑启用 fallback 模式"
+
+  - code: "llm.fallback_rate_high"
+    name: "LLM Fallback 率过高"
+    category: "llm"
+    severity: "high"
+    description: "LLM 降级/fallback 比例过高"
+    metric: "llm.fallback_rate"
+    condition: ">"
+    threshold: 10.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查主 LLM Provider 是否正常"
+      - "查看 fallback 原因分布"
+      - "考虑调整 LLM 超时配置"
+
+  - code: "llm.p95_latency_high"
+    name: "LLM P95 延迟过高"
+    category: "llm"
+    severity: "medium"
+    description: "LLM 调用 P95 延迟超过阈值"
+    metric: "llm.p95_latency_ms"
+    condition: ">"
+    threshold: 5000
+    unit: "ms"
+    window: "15m"
+    recommended_actions:
+      - "检查 LLM Provider 负载情况"
+      - "考虑减少 prompt 长度"
+      - "检查网络延迟"
+      - "考虑切换到更快的模型"
+
+  # ============================================================
+  # Gate 策略门禁类
+  # ============================================================
+  - code: "gate.conservative_rate_high"
+    name: "保守模式比例过高"
+    category: "gate"
+    severity: "high"
+    description: "Evidence Gate 保守模式触发比例过高"
+    metric: "gate.conservative_rate"
+    condition: ">"
+    threshold: 30.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查 evidence 覆盖率: GET /v1/retrieval/vector-coverage"
+      - "检查检索策略是否正常"
+      - "考虑放宽 Evidence Gate 阈值"
+      - "检查是否有大量新 NPC 未配置 evidence"
+
+  - code: "gate.refuse_rate_high"
+    name: "拒答率过高"
+    category: "gate"
+    severity: "medium"
+    description: "系统拒绝回答的比例过高"
+    metric: "gate.refuse_rate"
+    condition: ">"
+    threshold: 5.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查 Evidence Gate Policy 配置"
+      - "查看拒答原因分布"
+      - "考虑调整敏感词过滤规则"
+
+  - code: "gate.citations_rate_low"
+    name: "引用率过低"
+    category: "gate"
+    severity: "medium"
+    description: "回答中包含引用的比例过低"
+    metric: "gate.citations_rate"
+    condition: "<"
+    threshold: 70.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查 evidence 检索是否正常"
+      - "检查 prompt 是否要求引用"
+      - "查看 trace_ledger 中的 evidence_ids"
+
+  # ============================================================
+  # Vector 向量索引类
+  # ============================================================
+  - code: "vector.coverage_low"
+    name: "向量覆盖率过低"
+    category: "vector"
+    severity: "high"
+    description: "Evidence 向量化覆盖率低于阈值"
+    metric: "vector.coverage_ratio"
+    condition: "<"
+    threshold: 90.0
+    unit: "%"
+    window: "1h"
+    recommended_actions:
+      - "检查向量同步任务: GET /v1/retrieval/sync-jobs"
+      - "手动触发向量同步"
+      - "检查 embedding API 是否正常"
+      - "查看未向量化的 evidence: GET /v1/retrieval/stale-evidences"
+
+  - code: "vector.stale_count_high"
+    name: "过期向量数过多"
+    category: "vector"
+    severity: "medium"
+    description: "Evidence 更新后未重新向量化的数量过多"
+    metric: "vector.stale_count"
+    condition: ">"
+    threshold: 50
+    unit: "个"
+    window: "1h"
+    recommended_actions:
+      - "触发增量向量同步"
+      - "检查 worker 服务是否正常"
+      - "查看过期 evidence 列表"
+
+  # ============================================================
+  # Embedding 向量化成本类
+  # ============================================================
+  - code: "embedding.daily_cost_high"
+    name: "Embedding 日成本过高"
+    category: "embedding"
+    severity: "medium"
+    description: "Embedding API 日调用成本超过预算"
+    metric: "embedding.daily_cost"
+    condition: ">"
+    threshold: 10.0
+    unit: "USD"
+    window: "24h"
+    recommended_actions:
+      - "检查是否有异常批量调用"
+      - "检查去重缓存是否生效"
+      - "考虑降低 embedding 调用频率"
+      - "查看成本明细: GET /v1/embedding/usage/summary"
+
+  - code: "embedding.rate_limited_high"
+    name: "Embedding 限流率过高"
+    category: "embedding"
+    severity: "high"
+    description: "Embedding API 被限流的比例过高"
+    metric: "embedding.rate_limited_rate"
+    condition: ">"
+    threshold: 5.0
+    unit: "%"
+    window: "15m"
+    recommended_actions:
+      - "检查 embedding provider 配额"
+      - "考虑增加 API 配额"
+      - "启用请求队列和限流"
+      - "考虑切换到备用 embedding provider"
+
+  - code: "embedding.dedup_hit_rate_low"
+    name: "Embedding 去重命中率过低"
+    category: "embedding"
+    severity: "low"
+    description: "Embedding 去重缓存命中率低于预期"
+    metric: "embedding.dedup_hit_rate"
+    condition: "<"
+    threshold: 30.0
+    unit: "%"
+    window: "24h"
+    recommended_actions:
+      - "检查去重缓存配置"
+      - "检查是否有大量新内容"
+      - "考虑调整缓存 TTL"
+
+  # ============================================================
+  # Feedback 反馈处理类
+  # ============================================================
+  - code: "feedback.overdue_count_high"
+    name: "逾期反馈数过多"
+    category: "feedback"
+    severity: "high"
+    description: "超过 SLA 未处理的反馈数量过多"
+    metric: "feedback.overdue_count"
+    condition: ">"
+    threshold: 10
+    unit: "个"
+    window: "1h"
+    recommended_actions:
+      - "查看逾期反馈列表: GET /v1/feedback?overdue=true"
+      - "优先处理 critical/high 级别反馈"
+      - "考虑增加运营人员"
+      - "检查反馈分配规则"
+
+  - code: "feedback.backlog_high"
+    name: "反馈积压过多"
+    category: "feedback"
+    severity: "medium"
+    description: "待处理反馈总数过多"
+    metric: "feedback.pending_count"
+    condition: ">"
+    threshold: 50
+    unit: "个"
+    window: "1h"
+    recommended_actions:
+      - "查看待处理反馈: GET /v1/feedback?status=pending"
+      - "批量处理低优先级反馈"
+      - "考虑自动化处理部分反馈"
+
+  - code: "feedback.unassigned_high"
+    name: "未分配反馈过多"
+    category: "feedback"
+    severity: "medium"
+    description: "未分配处理人的反馈数量过多"
+    metric: "feedback.unassigned_count"
+    condition: ">"
+    threshold: 20
+    unit: "个"
+    window: "1h"
+    recommended_actions:
+      - "检查反馈自动分配规则"
+      - "手动分配反馈"
+      - "查看分配队列状态"
+
+# 通知配置
+notification:
+  # 告警级别与通知方式映射
+  severity_channels:
+    critical:
+      - webhook
+      - email
+    high:
+      - webhook
+    medium:
+      - webhook
+    low:
+      - log_only
+  
+  # 静默规则（避免告警风暴）
+  silence:
+    repeat_interval: "5m"  # 同一告警重复间隔
+    max_alerts_per_hour: 20  # 每小时最大告警数

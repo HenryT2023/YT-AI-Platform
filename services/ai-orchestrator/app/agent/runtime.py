@@ -42,6 +42,8 @@ from app.agent.schemas import (
     CitationItem,
 )
 from app.agent.validator import OutputValidator
+from app.experiments import ExperimentClient, ExperimentAssignment, get_experiment_client
+from app.tools.release_client import ReleaseClient, get_release_client, RuntimeConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -58,6 +60,7 @@ class AgentRuntime:
         tool_client: Optional[ResilientToolClient] = None,
         llm_provider: Optional[LLMProvider] = None,
         validator: Optional[OutputValidator] = None,
+        experiment_client: Optional[ExperimentClient] = None,
         use_legacy_adapter: bool = False,
         use_resilient_client: bool = True,
     ):
@@ -68,6 +71,12 @@ class AgentRuntime:
             self.tool_client = tool_client or get_tool_client()
         self._use_legacy_adapter = use_legacy_adapter
         self._use_resilient_client = use_resilient_client
+        
+        # 实验分桶客户端
+        self.experiment_client = experiment_client or get_experiment_client()
+        
+        # Release 客户端（带缓存）
+        self.release_client = get_release_client()
 
         if use_legacy_adapter:
             # 兼容旧的 LLM Adapter
@@ -129,8 +138,24 @@ class AgentRuntime:
         tool_calls = []
         evidence_ids = []
         citations = []
+        release_id = None
 
         try:
+            # 1.5 获取 Release 配置（轻量缓存）
+            log.info("step_get_release_config")
+            runtime_config = await self.release_client.get_runtime_config(
+                tenant_id=request.tenant_id,
+                site_id=request.site_id,
+                npc_id=request.npc_id,
+            )
+            release_id = runtime_config.release_id
+            tool_calls.append({
+                "name": "get_release_config",
+                "status": "success" if release_id else "fallback",
+                "release_id": release_id,
+                "release_name": runtime_config.release_name,
+            })
+
             # 2. 获取 NPC 人设
             log.info("step_get_npc_profile")
             npc_profile = await self.tool_client.get_npc_profile(request.npc_id, ctx)
@@ -176,9 +201,40 @@ class AgentRuntime:
                 if conversation_context:
                     tool_calls.append({"name": "get_session_memory", "status": "success", "npc_id": request.npc_id})
 
-            # 5. 检索证据
-            log.info("step_retrieve_evidence")
-            evidences = await self._retrieve_evidence(request.query, npc_profile, ctx)
+            # 4.5 获取实验分桶（A/B 测试）
+            log.info("step_experiment_assign")
+            experiment_assignment = await self.experiment_client.assign_first_active(
+                tenant_id=request.tenant_id,
+                site_id=request.site_id,
+                session_id=session_id,
+                user_id=request.user_id,
+            )
+            
+            # 构建策略快照
+            strategy_snapshot = self._build_strategy_snapshot(
+                experiment_assignment=experiment_assignment,
+                prompt_version=prompt_version,
+            )
+            
+            tool_calls.append({
+                "name": "experiment_assign",
+                "status": "success" if not experiment_assignment.error else "fallback",
+                "experiment_id": experiment_assignment.experiment_id or None,
+                "variant": experiment_assignment.variant,
+                "strategy_overrides": experiment_assignment.strategy_overrides,
+                "error": experiment_assignment.error,
+            })
+            
+            # 获取策略覆写
+            retrieval_strategy = experiment_assignment.strategy_overrides.get(
+                "retrieval_strategy", "hybrid"
+            )
+
+            # 5. 检索证据（应用实验策略覆写）
+            log.info("step_retrieve_evidence", strategy=retrieval_strategy)
+            evidences = await self._retrieve_evidence(
+                request.query, npc_profile, ctx, strategy=retrieval_strategy
+            )
             tool_calls.append({"name": "retrieve_evidence", "status": "success", "count": len(evidences)})
 
             # 转换为引用格式
@@ -229,6 +285,10 @@ class AgentRuntime:
                     latency_ms=latency_ms,
                     prompt_version=prompt_version,
                     prompt_source=prompt_source,
+                    experiment_id=experiment_assignment.experiment_id or None,
+                    experiment_variant=experiment_assignment.variant,
+                    strategy_snapshot=strategy_snapshot,
+                    release_id=release_id,
                 )
 
                 return ChatResponse(
@@ -342,8 +402,8 @@ class AgentRuntime:
                     trace_id=trace_id,
                 )
 
-            # 9. 记录事件 + 写入 trace_ledger（包含 prompt version）
-            log.info("step_log_and_trace", prompt_version=prompt_version)
+            # 9. 记录事件 + 写入 trace_ledger（包含实验字段和 release_id）
+            log.info("step_log_and_trace", prompt_version=prompt_version, variant=experiment_assignment.variant, release_id=release_id)
             await self._log_and_trace(
                 ctx=ctx,
                 request=request,
@@ -354,6 +414,10 @@ class AgentRuntime:
                 latency_ms=latency_ms,
                 prompt_version=prompt_version,
                 prompt_source=prompt_source,
+                experiment_id=experiment_assignment.experiment_id or None,
+                experiment_variant=experiment_assignment.variant,
+                strategy_snapshot=strategy_snapshot,
+                release_id=release_id,
             )
 
             # 10. 构建响应
@@ -380,7 +444,11 @@ class AgentRuntime:
             latency_ms = self._calc_latency(start_time)
             log.error("chat_error", error=str(e), latency_ms=latency_ms)
 
-            # 记录错误到 trace_ledger
+            # 记录错误到 trace_ledger（实验字段可能未初始化）
+            exp_id = experiment_assignment.experiment_id if 'experiment_assignment' in dir() else None
+            exp_variant = experiment_assignment.variant if 'experiment_assignment' in dir() else "control"
+            exp_snapshot = strategy_snapshot if 'strategy_snapshot' in dir() else {}
+            
             await self._log_and_trace(
                 ctx=ctx,
                 request=request,
@@ -390,6 +458,10 @@ class AgentRuntime:
                 answer_text="",
                 latency_ms=latency_ms,
                 error=str(e),
+                experiment_id=exp_id,
+                experiment_variant=exp_variant,
+                strategy_snapshot=exp_snapshot,
+                release_id=release_id,
             )
 
             return self._build_error_response(
@@ -403,14 +475,16 @@ class AgentRuntime:
         query: str,
         npc_profile: NPCProfile,
         ctx: ToolContext,
+        strategy: str = "hybrid",
     ) -> List[EvidenceItem]:
-        """检索证据"""
+        """检索证据（支持策略覆写）"""
         # 尝试使用 retrieve_evidence 工具
         evidences = await self.tool_client.retrieve_evidence(
             query=query,
             ctx=ctx,
             domains=npc_profile.knowledge_domains,
             limit=5,
+            strategy=strategy,
         )
 
         if evidences:
@@ -607,6 +681,25 @@ class AgentRuntime:
 
         return "\n".join(parts)
 
+    def _build_strategy_snapshot(
+        self,
+        experiment_assignment: ExperimentAssignment,
+        prompt_version: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """构建策略快照"""
+        from app.guardrails.policy_loader import get_policy_version
+        from app.guardrails.intent_classifier_v2 import get_intent_classifier_mode
+        
+        return {
+            "retrieval_strategy": experiment_assignment.strategy_overrides.get(
+                "retrieval_strategy", "hybrid"
+            ),
+            "evidence_gate_policy_version": get_policy_version(),
+            "prompt_version": prompt_version,
+            "intent_classifier_mode": get_intent_classifier_mode(),
+            "experiment_error": experiment_assignment.error,
+        }
+
     async def _log_and_trace(
         self,
         ctx: ToolContext,
@@ -620,8 +713,12 @@ class AgentRuntime:
         prompt_version: Optional[int] = None,
         prompt_source: Optional[str] = None,
         persona_version: Optional[int] = None,
+        experiment_id: Optional[str] = None,
+        experiment_variant: Optional[str] = None,
+        strategy_snapshot: Optional[Dict[str, Any]] = None,
+        release_id: Optional[str] = None,
     ) -> None:
-        """记录事件和追踪（包含 npc_id、persona_version、prompt_version）"""
+        """记录事件和追踪（包含实验字段和 release_id）"""
         # 记录用户事件
         await self.tool_client.log_user_event(
             event_type="npc_chat",
@@ -634,10 +731,12 @@ class AgentRuntime:
                 "prompt_version": prompt_version,
                 "prompt_source": prompt_source,
                 "persona_version": persona_version,
+                "experiment_id": experiment_id,
+                "experiment_variant": experiment_variant,
             },
         )
 
-        # 写入 trace_ledger（包含 npc_id、persona_version、prompt_version）
+        # 写入 trace_ledger（包含实验字段）
         await self.tool_client.create_trace(
             ctx=ctx,
             request_type="npc_chat",
@@ -656,6 +755,10 @@ class AgentRuntime:
             latency_ms=latency_ms,
             status="error" if error else "success",
             error=error,
+            experiment_id=experiment_id,
+            experiment_variant=experiment_variant,
+            strategy_snapshot=strategy_snapshot,
+            release_id=release_id,
         )
 
     def _generate_followup_questions(

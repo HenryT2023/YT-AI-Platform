@@ -41,13 +41,18 @@ class FeedbackSeverity(str, Enum):
 
 
 class FeedbackStatus(str, Enum):
-    """反馈状态"""
-    PENDING = "pending"           # 待处理
-    REVIEWING = "reviewing"       # 审核中
+    """反馈状态（工单化状态机）"""
+    NEW = "new"                   # 新建
+    TRIAGED = "triaged"           # 已分派
+    IN_PROGRESS = "in_progress"   # 处理中
+    RESOLVED = "resolved"         # 已解决
+    CLOSED = "closed"             # 已关闭
+    # 兼容旧状态
+    PENDING = "pending"           # 待处理（等同于 new）
+    REVIEWING = "reviewing"       # 审核中（等同于 in_progress）
     ACCEPTED = "accepted"         # 已采纳
     REJECTED = "rejected"         # 已拒绝
-    RESOLVED = "resolved"         # 已解决
-    ARCHIVED = "archived"         # 已归档
+    ARCHIVED = "archived"         # 已归档（等同于 closed）
 
 
 class UserFeedback(Base, TenantMixin):
@@ -133,8 +138,25 @@ class UserFeedback(Base, TenantMixin):
     applied_to_knowledge: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     applied_at: Mapped[Optional[datetime]] = mapped_column()
 
+    # ============================================================
+    # 工单化字段（P23 新增）
+    # ============================================================
+    
+    # 分派信息
+    assignee: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    group: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    
+    # SLA
+    sla_due_at: Mapped[Optional[datetime]] = mapped_column(index=True)
+    overdue_flag: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False, index=True)
+    
+    # 状态时间戳
+    triaged_at: Mapped[Optional[datetime]] = mapped_column()
+    in_progress_at: Mapped[Optional[datetime]] = mapped_column()
+    closed_at: Mapped[Optional[datetime]] = mapped_column()
+
     # 元数据
-    metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}", nullable=False)
 
     # 时间
     created_at: Mapped[datetime] = mapped_column(server_default="now()", nullable=False)
@@ -177,3 +199,37 @@ class UserFeedback(Base, TenantMixin):
     def archive(self) -> None:
         """归档反馈"""
         self.status = FeedbackStatus.ARCHIVED.value
+
+    # ============================================================
+    # 工单化方法（P23 新增）
+    # ============================================================
+
+    def triage(
+        self,
+        assignee: Optional[str] = None,
+        group: Optional[str] = None,
+        sla_hours: int = 24,
+    ) -> None:
+        """分派反馈"""
+        from datetime import timedelta
+        self.status = FeedbackStatus.TRIAGED.value
+        self.assignee = assignee
+        self.group = group
+        self.triaged_at = datetime.utcnow()
+        self.sla_due_at = datetime.utcnow() + timedelta(hours=sla_hours)
+
+    def start_progress(self) -> None:
+        """开始处理"""
+        self.status = FeedbackStatus.IN_PROGRESS.value
+        self.in_progress_at = datetime.utcnow()
+
+    def close(self, notes: Optional[str] = None) -> None:
+        """关闭反馈"""
+        self.status = FeedbackStatus.CLOSED.value
+        self.closed_at = datetime.utcnow()
+        if notes:
+            self.resolution_notes = notes
+
+    def mark_overdue(self) -> None:
+        """标记为逾期"""
+        self.overdue_flag = True

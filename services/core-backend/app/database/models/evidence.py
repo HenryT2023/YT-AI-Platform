@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -71,7 +71,7 @@ class Evidence(Base, TenantMixin, AuditMixin):
     domains: Mapped[list] = mapped_column(ARRAY(String), server_default="{}", nullable=False)
 
     # 元数据
-    metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}", nullable=False)
 
     # 向量化状态
     vector_updated_at: Mapped[Optional[datetime]] = mapped_column(

@@ -320,3 +320,60 @@ class ListFeedbackOutput(BaseModel):
 
     items: List[FeedbackItem]
     total: int
+
+
+# ============================================================
+# P23 新增：反馈工单化工具 Schema
+# ============================================================
+
+class TriageFeedbackInput(BaseModel):
+    """triage_feedback 输入"""
+
+    feedback_id: str = Field(..., description="反馈 ID")
+    assignee: Optional[str] = Field(None, description="指定处理人")
+    group: Optional[str] = Field(None, description="指定处理组")
+    sla_hours: Optional[int] = Field(None, description="SLA 小时数")
+    auto_route: bool = Field(True, description="是否使用自动分派规则")
+
+
+class TriageFeedbackOutput(BaseModel):
+    """triage_feedback 输出"""
+
+    feedback_id: str
+    status: str
+    assignee: Optional[str]
+    group: Optional[str]
+    sla_due_at: Optional[datetime]
+
+
+class UpdateFeedbackStatusInput(BaseModel):
+    """update_feedback_status 输入"""
+
+    feedback_id: str = Field(..., description="反馈 ID")
+    status: str = Field(..., description="目标状态: triaged/in_progress/resolved/closed")
+    notes: Optional[str] = Field(None, description="备注")
+    resolver: Optional[str] = Field(None, description="解决者（resolved 状态需要）")
+
+
+class UpdateFeedbackStatusOutput(BaseModel):
+    """update_feedback_status 输出"""
+
+    feedback_id: str
+    status: str
+    updated_at: datetime
+
+
+class GetFeedbackStatsInput(BaseModel):
+    """get_feedback_stats 输入"""
+
+    days: int = Field(30, ge=1, le=365, description="统计天数")
+
+
+class GetFeedbackStatsOutput(BaseModel):
+    """get_feedback_stats 输出"""
+
+    total: int
+    overdue_count: int
+    resolution_rate: float
+    avg_resolution_time_hours: Optional[float]
+    backlog_by_status: Dict[str, int]

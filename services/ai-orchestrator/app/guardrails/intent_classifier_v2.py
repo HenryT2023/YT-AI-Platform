@@ -594,3 +594,9 @@ async def get_intent_classifier_v2(
 def get_rule_classifier() -> RuleIntentClassifier:
     """获取规则分类器（同步版本）"""
     return RuleIntentClassifier()
+
+
+def get_intent_classifier_mode() -> str:
+    """获取当前意图分类器模式（用于 trace snapshot）"""
+    from app.core.config import settings
+    return "llm" if getattr(settings, "USE_LLM_INTENT_CLASSIFIER", False) else "rule"

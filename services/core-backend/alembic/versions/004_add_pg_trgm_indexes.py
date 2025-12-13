@@ -16,7 +16,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = '004_add_pg_trgm_indexes'
-down_revision = '003_add_npc_prompts'
+down_revision = '003_npc_prompts'
 branch_labels = None
 depends_on = None
 

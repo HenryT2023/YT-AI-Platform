@@ -3,14 +3,18 @@
 
 将知识库文档转换为向量并存入 Qdrant
 
-v2 改进：
+v3 改进：
 - 支持 evidence/content 变更触发 upsert
 - 支持多种 embedding 提供者（OpenAI/Baidu）
 - 支持删除向量
+- 集成 embedding_usage 审计
+- Hash 去重 (dedup_hit)
+- 限流重试 (rate_limited + backoff)
+- embedding_dim 一致性校验
 """
 
 from typing import Any, Dict, List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from celery import shared_task
 from qdrant_client import QdrantClient
@@ -20,11 +24,14 @@ import httpx
 import hashlib
 
 from app.config import settings
+from app.tasks.embedding_audit import (
+    embed_with_audit,
+    validate_qdrant_dimension,
+    compute_content_hash,
+    VECTOR_DIM,
+)
 
 logger = structlog.get_logger(__name__)
-
-# 向量维度
-VECTOR_DIM = 1024  # bge-large-zh / text-embedding-3-small
 
 
 def get_embedding(text: str) -> Optional[List[float]]:
@@ -202,7 +209,10 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
 
 
 def ensure_collection(qdrant: QdrantClient) -> None:
-    """确保 collection 存在"""
+    """确保 collection 存在并校验维度"""
+    # 先校验维度一致性
+    validate_qdrant_dimension(qdrant, settings.QDRANT_COLLECTION)
+    
     collections = qdrant.get_collections().collections
     collection_names = [c.name for c in collections]
 
@@ -210,11 +220,11 @@ def ensure_collection(qdrant: QdrantClient) -> None:
         qdrant.create_collection(
             collection_name=settings.QDRANT_COLLECTION,
             vectors_config=VectorParams(
-                size=1536,  # text-embedding-3-small 维度
+                size=VECTOR_DIM,  # 使用统一的向量维度
                 distance=Distance.COSINE,
             ),
         )
-        logger.info("collection_created", name=settings.QDRANT_COLLECTION)
+        logger.info("collection_created", name=settings.QDRANT_COLLECTION, dim=VECTOR_DIM)
 
 
 @shared_task
@@ -252,14 +262,22 @@ def vectorize_evidence(
     verified: bool = False,
     tags: Optional[List[str]] = None,
     domains: Optional[List[str]] = None,
+    existing_hash: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     向量化单条证据
 
     当 evidence 创建或更新时触发
+    
+    v3: 集成 embedding_usage 审计和 hash 去重
     """
     log = logger.bind(evidence_id=evidence_id)
     log.info("vectorize_evidence_start")
+    
+    # 生成 job_id（如果未提供）
+    if not job_id:
+        job_id = str(uuid4())
 
     try:
         # 1. 构建待向量化文本
@@ -269,17 +287,40 @@ def vectorize_evidence(
         text_parts.append(excerpt)
         text = "\n".join(text_parts)
 
-        # 2. 获取向量
-        embedding = get_embedding(text)
-        if not embedding:
-            log.warning("vectorize_evidence_no_embedding")
-            return {"status": "error", "error": "no_embedding"}
+        # 2. 获取向量（带审计和去重）
+        embed_result = embed_with_audit(
+            tenant_id=tenant_id,
+            site_id=site_id,
+            object_type="evidence",
+            object_id=evidence_id,
+            text=text,
+            existing_hash=existing_hash,
+            job_id=job_id,
+        )
+        
+        # 去重命中，跳过
+        if embed_result.status == "dedup_hit":
+            log.info("vectorize_evidence_dedup_hit")
+            return {
+                "status": "dedup_hit",
+                "evidence_id": evidence_id,
+                "content_hash": embed_result.content_hash,
+            }
+        
+        # 获取向量失败
+        if not embed_result.embedding:
+            log.warning("vectorize_evidence_no_embedding", status=embed_result.status)
+            return {
+                "status": "error",
+                "error": embed_result.status,
+                "error_type": embed_result.error_type,
+            }
 
         # 3. 构建 point
         point_id = _generate_point_id(evidence_id)
         point = PointStruct(
             id=point_id,
-            vector=embedding,
+            vector=embed_result.embedding,
             payload={
                 "evidence_id": evidence_id,
                 "tenant_id": tenant_id,
@@ -292,6 +333,7 @@ def vectorize_evidence(
                 "verified": verified,
                 "tags": tags or [],
                 "domains": domains or [],
+                "content_hash": embed_result.content_hash,
             },
         )
 
@@ -303,11 +345,17 @@ def vectorize_evidence(
             points=[point],
         )
 
-        log.info("vectorize_evidence_complete", point_id=point_id)
+        log.info(
+            "vectorize_evidence_complete",
+            point_id=point_id,
+            latency_ms=embed_result.latency_ms,
+        )
         return {
             "status": "success",
             "evidence_id": evidence_id,
             "point_id": point_id,
+            "content_hash": embed_result.content_hash,
+            "latency_ms": embed_result.latency_ms,
         }
 
     except Exception as e:
@@ -362,14 +410,21 @@ def vectorize_content(
     domains: Optional[List[str]] = None,
     chunk_size: int = 500,
     chunk_overlap: int = 50,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     向量化内容（分块）
 
     当 content 创建或更新时触发
+    
+    v3: 集成 embedding_usage 审计
     """
     log = logger.bind(content_id=content_id)
     log.info("vectorize_content_start")
+    
+    # 生成 job_id（如果未提供）
+    if not job_id:
+        job_id = str(uuid4())
 
     try:
         # 1. 分块
@@ -381,18 +436,39 @@ def vectorize_content(
         qdrant = get_qdrant_client()
         ensure_collection(qdrant)
 
-        # 3. 向量化并存储
+        # 3. 向量化并存储（带审计）
         points = []
+        success_count = 0
+        dedup_count = 0
+        failed_count = 0
+        
         for i, chunk in enumerate(chunks):
-            embedding = get_embedding(chunk)
-            if not embedding:
+            chunk_id = f"{content_id}_{i}"
+            
+            # 使用 embed_with_audit
+            embed_result = embed_with_audit(
+                tenant_id=tenant_id,
+                site_id=site_id,
+                object_type="content_chunk",
+                object_id=chunk_id,
+                text=chunk,
+                job_id=job_id,
+            )
+            
+            if embed_result.status == "dedup_hit":
+                dedup_count += 1
                 continue
-
-            point_id = _generate_point_id(f"{content_id}_{i}")
+            
+            if not embed_result.embedding:
+                failed_count += 1
+                continue
+            
+            success_count += 1
+            point_id = _generate_point_id(chunk_id)
             points.append(
                 PointStruct(
                     id=point_id,
-                    vector=embedding,
+                    vector=embed_result.embedding,
                     payload={
                         "content_id": content_id,
                         "tenant_id": tenant_id,
@@ -403,6 +479,7 @@ def vectorize_content(
                         "chunk_index": i,
                         "tags": tags or [],
                         "domains": domains or [],
+                        "content_hash": embed_result.content_hash,
                     },
                 )
             )
@@ -414,12 +491,21 @@ def vectorize_content(
                 points=points,
             )
 
-        log.info("vectorize_content_complete", points_count=len(points))
+        log.info(
+            "vectorize_content_complete",
+            points_count=len(points),
+            success=success_count,
+            dedup=dedup_count,
+            failed=failed_count,
+        )
         return {
             "status": "success",
             "content_id": content_id,
             "chunk_count": len(chunks),
             "points_count": len(points),
+            "success_count": success_count,
+            "dedup_count": dedup_count,
+            "failed_count": failed_count,
         }
 
     except Exception as e:

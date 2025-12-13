@@ -17,6 +17,8 @@ from app.database.models.user_feedback import UserFeedback, FeedbackType
 from app.database.models.analytics_event import AnalyticsEvent
 from app.database.models.npc_prompt import NPCPrompt
 from app.database.models.vector_sync_job import VectorSyncJob, VectorSyncStatus
+from app.database.models.embedding_usage import EmbeddingUsage, EmbeddingStatus, EmbeddingObjectType
+from app.database.models.alerts import AlertEvent, AlertSilence, AlertStatus
 
 __all__ = [
     # Core
@@ -49,4 +51,12 @@ __all__ = [
     # Vector Sync
     "VectorSyncJob",
     "VectorSyncStatus",
+    # Embedding Usage
+    "EmbeddingUsage",
+    "EmbeddingStatus",
+    "EmbeddingObjectType",
+    # Alerts
+    "AlertEvent",
+    "AlertSilence",
+    "AlertStatus",
 ]

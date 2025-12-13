@@ -86,7 +86,7 @@ class Content(Base, TenantMixin, AuditMixin):
     search_vector: Mapped[Optional[str]] = mapped_column(TSVECTOR)
 
     # 元数据
-    metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, server_default="{}", nullable=False)
 
     # 统计
     view_count: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
