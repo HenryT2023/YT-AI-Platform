@@ -26,6 +26,7 @@ from app.api.v1 import (
     tools,
     prompts,
     feedback,
+    vector_coverage,
 )
 
 router = APIRouter()
@@ -66,3 +67,6 @@ router.include_router(prompts.router, prefix="/v1/prompts", tags=["Prompt管理"
 
 # 用户反馈
 router.include_router(feedback.router, prefix="/v1", tags=["用户反馈"])
+
+# 向量覆盖率
+router.include_router(vector_coverage.router, prefix="/v1", tags=["向量检索"])

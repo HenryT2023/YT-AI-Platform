@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     OPENAI_API_BASE: str = "https://api.openai.com/v1"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+    # Baidu 配置（用于 Embedding 回退）
+    BAIDU_API_KEY: str = ""
+    BAIDU_SECRET_KEY: str = ""
+
     # 对象存储配置
     S3_ENDPOINT: str = ""
     S3_ACCESS_KEY: str = ""

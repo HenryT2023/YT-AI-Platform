@@ -73,6 +73,14 @@ class Evidence(Base, TenantMixin, AuditMixin):
     # 元数据
     metadata: Mapped[dict] = mapped_column(JSONB, server_default="{}", nullable=False)
 
+    # 向量化状态
+    vector_updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+    vector_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
     # 引用计数
     citation_count: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
 

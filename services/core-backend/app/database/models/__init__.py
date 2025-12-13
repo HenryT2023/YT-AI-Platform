@@ -16,6 +16,7 @@ from app.database.models.trace_ledger import TraceLedger, PolicyMode
 from app.database.models.user_feedback import UserFeedback, FeedbackType
 from app.database.models.analytics_event import AnalyticsEvent
 from app.database.models.npc_prompt import NPCPrompt
+from app.database.models.vector_sync_job import VectorSyncJob, VectorSyncStatus
 
 __all__ = [
     # Core
@@ -45,4 +46,7 @@ __all__ = [
     "FeedbackType",
     # Analytics
     "AnalyticsEvent",
+    # Vector Sync
+    "VectorSyncJob",
+    "VectorSyncStatus",
 ]
