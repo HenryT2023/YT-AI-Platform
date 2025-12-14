@@ -1,10 +1,10 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Loader2, RotateCcw } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { ArrowLeft, Send, Loader2, RotateCcw, ChevronDown, ChevronUp, BookOpen, Hash } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { getOrCreateSessionId, clearSessionId } from '@/lib/session'
-import { TENANT_ID, SITE_ID } from '@/lib/config'
+import { npcChat, isNPCChatError, getPolicyModeLabel, getPolicyModeColor, type PolicyMode, type CitationItem } from '@/lib/api'
 
 const NPC_DATA: Record<string, {
   name: string
@@ -40,7 +40,151 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  // Assistant 消息的额外字段
+  policyMode?: PolicyMode
+  citations?: CitationItem[]
+  traceId?: string
+  followupQuestions?: string[]
+  isError?: boolean
 }
+
+// ============================================================
+// MessageBubble 组件
+// ============================================================
+
+function MessageBubble({ message }: { message: Message }) {
+  const [showCitations, setShowCitations] = useState(false)
+  const [showTrace, setShowTrace] = useState(false)
+  
+  if (message.role === 'user') {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-2xl rounded-br-md px-4 py-2.5 bg-primary-500 text-white">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {message.content}
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Assistant 消息
+  const hasCitations = message.citations && message.citations.length > 0
+  const hasTrace = !!message.traceId
+  
+  return (
+    <div className="flex justify-start">
+      <div className={`max-w-[85%] rounded-2xl rounded-bl-md px-4 py-2.5 shadow-sm ${
+        message.isError 
+          ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' 
+          : 'bg-white dark:bg-slate-800'
+      }`}>
+        {/* 回答文本 */}
+        <p className={`text-sm leading-relaxed whitespace-pre-wrap ${
+          message.isError 
+            ? 'text-red-600 dark:text-red-400' 
+            : 'text-slate-900 dark:text-white'
+        }`}>
+          {message.content}
+        </p>
+        
+        {/* Policy Mode 标签 */}
+        {message.policyMode && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPolicyModeColor(message.policyMode)}`}>
+              {getPolicyModeLabel(message.policyMode)}
+            </span>
+          </div>
+        )}
+        
+        {/* 折叠区域 */}
+        {(hasCitations || hasTrace) && (
+          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
+            {/* 引用折叠 */}
+            {hasCitations && (
+              <div>
+                <button
+                  onClick={() => setShowCitations(!showCitations)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>引用 ({message.citations!.length})</span>
+                  {showCitations ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                
+                {showCitations && (
+                  <div className="mt-2 space-y-1.5">
+                    {message.citations!.map((citation, idx) => (
+                      <div 
+                        key={citation.evidence_id || idx}
+                        className="text-xs bg-slate-50 dark:bg-slate-700/50 rounded px-2 py-1.5"
+                      >
+                        <div className="font-medium text-slate-700 dark:text-slate-300">
+                          {citation.title || `证据 ${idx + 1}`}
+                        </div>
+                        {citation.source_ref && (
+                          <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+                            来源: {citation.source_ref}
+                          </div>
+                        )}
+                        {citation.excerpt && (
+                          <div className="text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
+                            {citation.excerpt}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Trace 折叠 */}
+            {hasTrace && (
+              <div>
+                <button
+                  onClick={() => setShowTrace(!showTrace)}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  <Hash className="w-3.5 h-3.5" />
+                  <span>Trace</span>
+                  {showTrace ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                
+                {showTrace && (
+                  <div className="mt-1 text-xs text-slate-400 font-mono bg-slate-50 dark:bg-slate-700/50 rounded px-2 py-1">
+                    {message.traceId}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* 后续问题建议 */}
+        {message.followupQuestions && message.followupQuestions.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+            <div className="text-xs text-slate-500 mb-1.5">你可能还想问：</div>
+            <div className="flex flex-wrap gap-1.5">
+              {message.followupQuestions.map((q, idx) => (
+                <button
+                  key={idx}
+                  className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// 主页面组件
+// ============================================================
 
 export default function NPCChatPage() {
   const params = useParams()
@@ -59,6 +203,8 @@ export default function NPCChatPage() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   
   // 初始化 session
   useEffect(() => {
@@ -68,6 +214,11 @@ export default function NPCChatPage() {
       console.log(`[Session] NPC: ${npcId}, Session: ${sid}`)
     }
   }, [npcId])
+  
+  // 自动滚动到底部
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isLoading])
   
   if (!npc) {
     return (
@@ -88,27 +239,46 @@ export default function NPCChatPage() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
     
+    const query = input.trim()
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: query,
     }
     
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
+    setError(null)
     
-    // TODO: 调用 AI Orchestrator API
-    // 目前使用模拟响应
-    setTimeout(() => {
+    // 调用 AI Orchestrator API
+    const result = await npcChat(npcId, query, sessionId)
+    
+    if (isNPCChatError(result)) {
+      // 错误处理
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: result.message,
+        isError: true,
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      setError(result.message)
+    } else {
+      // 成功响应
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `（${npc.name}正在思考...）这是一个模拟回复。后续会接入 AI Orchestrator 服务。\n\n[Session: ${sessionId}]`,
+        content: result.answer_text,
+        policyMode: result.policy_mode,
+        citations: result.citations,
+        traceId: result.trace_id,
+        followupQuestions: result.followup_questions,
       }
       setMessages((prev) => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 1000)
+    }
+    
+    setIsLoading(false)
   }
   
   const handleResetChat = () => {
@@ -166,22 +336,7 @@ export default function NPCChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
-                message.role === 'user'
-                  ? 'bg-primary-500 text-white rounded-br-md'
-                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md shadow-sm'
-              }`}
-            >
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                {message.content}
-              </p>
-            </div>
-          </div>
+          <MessageBubble key={message.id} message={message} />
         ))}
         
         {isLoading && (
@@ -191,6 +346,9 @@ export default function NPCChatPage() {
             </div>
           </div>
         )}
+        
+        {/* 滚动锚点 */}
+        <div ref={messagesEndRef} />
       </div>
       
       {/* Input */}
