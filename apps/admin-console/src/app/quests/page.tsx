@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { questsApi } from '@/lib/api';
 import {
   Trophy,
   Plus,
@@ -64,10 +63,10 @@ export default function QuestsPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: any = {};
-      if (typeFilter) params.quest_type = typeFilter;
-      const res = await questsApi.list(params);
-      const data = res.data;
+      let url = '/api/admin/quests';
+      if (typeFilter) url += `?quest_type=${typeFilter}`;
+      const res = await fetch(url);
+      const data = await res.json();
       setQuests(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || '获取任务列表失败');
@@ -84,7 +83,7 @@ export default function QuestsPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`确定要删除任务「${name}」吗？此操作不可恢复。`)) return;
     try {
-      await questsApi.delete(id);
+      await fetch(`/api/admin/quests/${id}`, { method: 'DELETE' });
       await fetchQuests();
     } catch (err: any) {
       alert(err.message || '删除失败');

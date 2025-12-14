@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { visitorsApi } from '@/lib/api';
 import {
   Users,
   RefreshCw,
@@ -39,8 +38,8 @@ export default function VisitorsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await visitorsApi.list({ skip: page * pageSize, limit: pageSize });
-      const data = res.data;
+      const res = await fetch(`/api/admin/visitors?skip=${page * pageSize}&limit=${pageSize}`);
+      const data = await res.json();
       if (Array.isArray(data)) {
         setVisitors(data);
       } else if (data && Array.isArray(data.items)) {

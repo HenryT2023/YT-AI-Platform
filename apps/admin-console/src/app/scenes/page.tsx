@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { scenesApi } from '@/lib/api';
 import {
   MapPin,
   Plus,
@@ -55,8 +54,8 @@ export default function ScenesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await scenesApi.list();
-      const data = res.data;
+      const res = await fetch('/api/admin/scenes');
+      const data = await res.json();
       setScenes(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || '获取场景列表失败');
@@ -73,7 +72,7 @@ export default function ScenesPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`确定要删除场景「${name}」吗？此操作不可恢复。`)) return;
     try {
-      await scenesApi.delete(id);
+      await fetch(`/api/admin/scenes/${id}`, { method: 'DELETE' });
       await fetchScenes();
     } catch (err: any) {
       alert(err.message || '删除失败');

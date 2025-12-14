@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { npcsApi } from '@/lib/api';
 import {
   MessageSquare,
   Plus,
@@ -54,10 +53,10 @@ export default function NpcsPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: any = {};
-      if (typeFilter) params.npc_type = typeFilter;
-      const res = await npcsApi.list(params);
-      const data = res.data;
+      let url = '/api/admin/npcs';
+      if (typeFilter) url += `?npc_type=${typeFilter}`;
+      const res = await fetch(url);
+      const data = await res.json();
       setNpcs(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || '获取 NPC 列表失败');
@@ -74,7 +73,7 @@ export default function NpcsPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`确定要删除 NPC「${name}」吗？此操作不可恢复。`)) return;
     try {
-      await npcsApi.delete(id);
+      await fetch(`/api/admin/npcs/${id}`, { method: 'DELETE' });
       await fetchNpcs();
     } catch (err: any) {
       alert(err.message || '删除失败');
