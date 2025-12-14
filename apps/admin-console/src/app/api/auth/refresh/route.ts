@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  getAccessCookieOptions,
+  getRefreshCookieOptions,
+} from '@/lib/cookie-config';
 
 const CORE_BACKEND_URL = process.env.CORE_BACKEND_URL || 'http://localhost:8000';
-
-// Cookie 名称
-const ACCESS_COOKIE = 'yt_admin_access';
-const REFRESH_COOKIE = 'yt_admin_refresh';
-
-// Cookie 有效期（秒）
-const ACCESS_MAX_AGE = 60 * 15; // 15 分钟
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 天
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -47,22 +45,18 @@ export async function POST() {
       );
     }
     
-    // 更新 cookies
-    cookieStore.set(ACCESS_COOKIE, data.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: data.access_expires_in || ACCESS_MAX_AGE,
-      path: '/',
-    });
+    // 更新 cookies（使用环境化配置）
+    cookieStore.set(
+      ACCESS_COOKIE, 
+      data.access_token, 
+      getAccessCookieOptions(data.access_expires_in)
+    );
     
-    cookieStore.set(REFRESH_COOKIE, data.refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: data.refresh_expires_in || REFRESH_MAX_AGE,
-      path: '/',
-    });
+    cookieStore.set(
+      REFRESH_COOKIE, 
+      data.refresh_token, 
+      getRefreshCookieOptions(data.refresh_expires_in)
+    );
     
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { ACCESS_COOKIE, REFRESH_COOKIE } from '@/lib/cookie-config';
 
 const CORE_BACKEND_URL = process.env.CORE_BACKEND_URL || 'http://localhost:8000';
-
-// Cookie 名称
-const ACCESS_COOKIE = 'yt_admin_access';
-const REFRESH_COOKIE = 'yt_admin_refresh';
 
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();

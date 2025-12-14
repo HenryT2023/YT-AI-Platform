@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  getAccessCookieOptions,
+  getRefreshCookieOptions,
+} from '@/lib/cookie-config';
 
 const CORE_BACKEND_URL = process.env.CORE_BACKEND_URL || 'http://localhost:8000';
-
-// Cookie 名称
-const ACCESS_COOKIE = 'yt_admin_access';
-const REFRESH_COOKIE = 'yt_admin_refresh';
-
-// Cookie 有效期（秒）
-const ACCESS_MAX_AGE = 60 * 15; // 15 分钟
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 天
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,11 +21,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 转发到 core-backend
+    // 转发到 core-backend（包含客户端 IP）
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+    
     const response = await fetch(`${CORE_BACKEND_URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Forwarded-For': clientIp,
       },
       body: JSON.stringify({ username, password }),
     });
@@ -35,32 +38,39 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
+      // 处理锁定响应
+      if (response.status === 429 && data.detail?.locked) {
+        return NextResponse.json(
+          { 
+            error: data.detail.message,
+            locked: true,
+            remaining_seconds: data.detail.remaining_seconds,
+          },
+          { status: 429 }
+        );
+      }
       return NextResponse.json(
-        { error: data.detail || '登录失败' },
+        { error: typeof data.detail === 'string' ? data.detail : '登录失败' },
         { status: response.status }
       );
     }
 
-    // 设置 HttpOnly cookies
+    // 设置 HttpOnly cookies（使用环境化配置）
     const cookieStore = await cookies();
     
-    // Access token cookie（短有效期）
-    cookieStore.set(ACCESS_COOKIE, data.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: data.access_expires_in || ACCESS_MAX_AGE,
-      path: '/',
-    });
+    // Access token cookie
+    cookieStore.set(
+      ACCESS_COOKIE, 
+      data.access_token, 
+      getAccessCookieOptions(data.access_expires_in)
+    );
     
-    // Refresh token cookie（长有效期）
-    cookieStore.set(REFRESH_COOKIE, data.refresh_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: data.refresh_expires_in || REFRESH_MAX_AGE,
-      path: '/',
-    });
+    // Refresh token cookie
+    cookieStore.set(
+      REFRESH_COOKIE, 
+      data.refresh_token, 
+      getRefreshCookieOptions(data.refresh_expires_in)
+    );
 
     // 返回用户信息（不包含 token）
     return NextResponse.json({

@@ -20,12 +20,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
+
 from app.core.config import settings
 from app.core.security import create_access_token, decode_token, verify_password
 from app.core.rbac import ALLOWED_LOGIN_ROLES
+from app.core.redis_client import get_redis, LoginRateLimiter
 from app.db import get_db
 from app.database.models.user import User, UserRole
 from app.database.models.refresh_token import RefreshToken
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -251,7 +256,38 @@ async def admin_login(
     验证用户名密码，返回：
     - access_token: JWT，短有效期
     - refresh_token: 随机串，长有效期，落库
+    
+    安全机制：
+    - 登录失败超过阈值后锁定（按 username + IP）
     """
+    # 获取客户端 IP
+    client_ip = request.client.host if request.client else "unknown"
+    log = logger.bind(username=data.username, ip=client_ip)
+    
+    # 检查是否被锁定
+    try:
+        redis_client = await get_redis()
+        rate_limiter = LoginRateLimiter(redis_client)
+        
+        is_locked, remaining_seconds = await rate_limiter.check_locked(data.username, client_ip)
+        
+        if is_locked:
+            log.warning("login_blocked_by_rate_limit", remaining_seconds=remaining_seconds)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "message": f"登录失败次数过多，请在 {remaining_seconds} 秒后重试",
+                    "remaining_seconds": remaining_seconds,
+                    "locked": True,
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Redis 不可用时不阻止登录，但记录警告
+        log.warning("redis_unavailable_for_rate_limit", error=str(e))
+        rate_limiter = None
+    
     # 查找用户
     result = await db.execute(
         select(User).where(
@@ -261,7 +297,28 @@ async def admin_login(
     )
     user = result.scalar_one_or_none()
     
+    # 验证失败的统一处理函数
+    async def handle_login_failure(reason: str):
+        if rate_limiter:
+            count, remaining = await rate_limiter.record_failure(data.username, client_ip)
+            log.warning("login_failed", reason=reason, fail_count=count, remaining_attempts=remaining)
+            
+            if remaining == 0:
+                # 已达到锁定阈值
+                lockout_info = await rate_limiter.get_lockout_info(data.username, client_ip)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={
+                        "message": f"登录失败次数过多，账户已锁定 {settings.AUTH_LOCKOUT_MINUTES} 分钟",
+                        "remaining_seconds": lockout_info["remaining_seconds"],
+                        "locked": True,
+                    },
+                )
+        else:
+            log.warning("login_failed", reason=reason)
+    
     if not user:
+        await handle_login_failure("user_not_found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
@@ -269,6 +326,7 @@ async def admin_login(
     
     # 验证密码
     if not user.hashed_password or not verify_password(data.password, user.hashed_password):
+        await handle_login_failure("invalid_password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
@@ -276,6 +334,7 @@ async def admin_login(
     
     # 检查是否为允许登录后台的角色
     if user.role not in ALLOWED_LOGIN_ROLES:
+        await handle_login_failure("invalid_role")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"角色 [{user.role}] 无权登录管理后台，仅允许 admin/operator/viewer 角色",
@@ -283,13 +342,19 @@ async def admin_login(
     
     # 检查账户状态
     if not user.is_active:
+        await handle_login_failure("account_disabled")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="账户已被禁用",
         )
     
-    # 更新最后登录时间
+    # 登录成功，清除失败记录
+    if rate_limiter:
+        await rate_limiter.clear_failures(data.username, client_ip)
+    
+    # 更新最后登录时间和 IP
     user.last_login_at = datetime.now(timezone.utc)
+    user.last_login_ip = client_ip
     
     # 生成 access token (JWT)
     access_expires_minutes = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
@@ -308,7 +373,6 @@ async def admin_login(
     
     # 获取客户端信息
     user_agent = request.headers.get("User-Agent", "")[:500]
-    client_ip = request.client.host if request.client else None
     
     await create_refresh_token_in_db(
         db=db,
@@ -320,6 +384,8 @@ async def admin_login(
     )
     
     await db.commit()
+    
+    log.info("login_success", user_id=str(user.id), role=user.role)
     
     return LoginResponse(
         access_token=access_token,

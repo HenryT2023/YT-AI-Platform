@@ -49,8 +49,12 @@ class Settings(BaseSettings):
     # JWT 配置
     JWT_SECRET_KEY: str = "your-super-secret-jwt-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # 登录安全配置
+    AUTH_MAX_LOGIN_FAILS: int = 5  # 最大登录失败次数
+    AUTH_LOCKOUT_MINUTES: int = 10  # 锁定时间（分钟）
 
     # CORS 配置
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
