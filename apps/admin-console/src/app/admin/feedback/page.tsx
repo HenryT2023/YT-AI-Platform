@@ -66,7 +66,16 @@ export default function FeedbackPage() {
       if (severityFilter) params.severity = severityFilter;
       if (overdueOnly) params.overdue_only = true;
       const res = await feedbackApi.list(params);
-      return res.data;
+      // 处理分页格式或直接数组格式
+      const data = res.data;
+      if (Array.isArray(data)) {
+        return data;
+      }
+      // 如果是分页格式 {items: [], total: number}
+      if (data && Array.isArray(data.items)) {
+        return data.items;
+      }
+      return [];
     },
   });
 

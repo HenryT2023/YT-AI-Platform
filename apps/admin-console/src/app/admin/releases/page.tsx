@@ -91,9 +91,15 @@ export default function ReleasesPage() {
     try {
       const res = await fetch(`/api/admin/releases/active?tenant_id=${tenantId}&site_id=${siteId}`);
       const data = await res.json();
-      setActiveRelease(data);
+      // 只有当返回有效数据时才设置
+      if (data && data.id) {
+        setActiveRelease(data);
+      } else {
+        setActiveRelease(null);
+      }
     } catch (error) {
       console.error('Failed to fetch active release:', error);
+      setActiveRelease(null);
     }
   };
 
