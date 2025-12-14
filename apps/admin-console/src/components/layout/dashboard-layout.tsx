@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -17,12 +17,12 @@ import {
 import clsx from 'clsx';
 
 const navigation = [
-  { name: '仪表盘', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'NPC 管理', href: '/npcs', icon: MessageSquare },
-  { name: '场景管理', href: '/scenes', icon: MapPin },
-  { name: '任务管理', href: '/quests', icon: Trophy },
-  { name: '访客数据', href: '/visitors', icon: Users },
-  { name: '系统设置', href: '/settings', icon: Settings },
+  { name: '仪表盘', href: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'NPC 管理', href: '/admin/npcs', icon: MessageSquare },
+  { name: '场景管理', href: '/admin/scenes', icon: MapPin },
+  { name: '任务管理', href: '/admin/quests', icon: Trophy },
+  { name: '访客数据', href: '/admin/visitors', icon: Users },
+  { name: '系统设置', href: '/admin/settings', icon: Settings },
 ];
 
 interface DashboardLayoutProps {
@@ -32,6 +32,12 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,7 +66,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 href={item.href}
                 className={clsx(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                  pathname === item.href
+                  pathname.startsWith(item.href)
                     ? 'bg-primary-50 text-primary-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 )}
@@ -88,7 +94,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 href={item.href}
                 className={clsx(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium mb-1',
-                  pathname === item.href
+                  pathname.startsWith(item.href)
                     ? 'bg-primary-50 text-primary-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 )}
@@ -99,7 +105,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             ))}
           </nav>
           <div className="border-t p-4">
-            <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
               <LogOut className="h-5 w-5" />
               退出登录
             </button>
