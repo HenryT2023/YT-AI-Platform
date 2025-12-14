@@ -7,9 +7,23 @@ import {
   FileJson,
   LayoutDashboard,
   ChevronRight,
+  Package,
+  Bell,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
+  {
+    href: '/admin/releases',
+    label: 'Release 管理',
+    icon: Package,
+    description: '灰度发布配置包管理',
+  },
+  {
+    href: '/admin/alerts',
+    label: '告警管理',
+    icon: Bell,
+    description: '监控告警事件与静默规则',
+  },
   {
     href: '/admin/feedback',
     label: '反馈工单',
