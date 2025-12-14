@@ -57,9 +57,10 @@ interface Message {
 interface MessageBubbleProps {
   message: Message
   onFeedback?: (traceId: string, content: string) => void
+  onFollowup?: (question: string) => void
 }
 
-function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
+function MessageBubble({ message, onFeedback, onFollowup }: MessageBubbleProps) {
   const [showCitations, setShowCitations] = useState(false)
   const [showTrace, setShowTrace] = useState(false)
   
@@ -168,7 +169,7 @@ function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
           </div>
         )}
         
-        {/* 后续问题建议 */}
+        {/* 后续问题建议 - 点击即发送 */}
         {message.followupQuestions && message.followupQuestions.length > 0 && (
           <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
             <div className="text-xs text-slate-500 mb-1.5">你可能还想问：</div>
@@ -176,7 +177,8 @@ function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
               {message.followupQuestions.map((q, idx) => (
                 <button
                   key={idx}
-                  className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => onFollowup?.(q)}
+                  className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-400 transition-colors active:scale-95"
                 >
                   {q}
                 </button>
@@ -340,6 +342,47 @@ export default function NPCChatPage() {
     )
   }
   
+  // 点击后续问题即发送
+  const handleFollowup = async (question: string) => {
+    if (isLoading) return
+    
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: question,
+    }
+    
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+    setError(null)
+    
+    const result = await npcChat(npcId, question, sessionId)
+    
+    if (isNPCChatError(result)) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: result.message,
+        isError: true,
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      setError(result.message)
+    } else {
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: result.answer_text,
+        policyMode: result.policy_mode,
+        citations: result.citations,
+        traceId: result.trace_id,
+        followupQuestions: result.followup_questions,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+    }
+    
+    setIsLoading(false)
+  }
+  
   const handleResetChat = () => {
     // 清除当前 NPC 的 session
     clearSessionId(npcId)
@@ -399,6 +442,7 @@ export default function NPCChatPage() {
             key={message.id} 
             message={message} 
             onFeedback={handleOpenFeedback}
+            onFollowup={handleFollowup}
           />
         ))}
         
