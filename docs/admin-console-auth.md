@@ -249,10 +249,149 @@ python scripts/rbac_smoke_test.py --skip-setup
 3. 测试各端点的权限控制
 4. 输出测试结果表格
 
+## Refresh Token 机制
+
+### 概述
+
+系统实现了完整的 refresh token 机制，提供生产级的登录体验和安全性：
+
+- **access_token**: JWT，短有效期（默认 15 分钟）
+- **refresh_token**: 随机串，长有效期（默认 7 天），落库可撤销
+
+### Cookie 存储
+
+两个 token 都存储在 HttpOnly cookie 中，JS 无法访问：
+
+| Cookie 名称 | 内容 | 有效期 | 用途 |
+|------------|------|--------|------|
+| `yt_admin_access` | access_token | 15 分钟 | API 认证 |
+| `yt_admin_refresh` | refresh_token | 7 天 | 刷新 access_token |
+
+### Token 轮换 (Rotate)
+
+每次调用 `/refresh` 时：
+1. 验证旧 refresh_token 是否有效
+2. 生成新的 access_token 和 refresh_token
+3. **撤销旧 refresh_token**（设置 `revoked_at`）
+4. 建立链接（`replaced_by_id` 指向新 token）
+5. 返回新的 tokens
+
+这确保了即使 refresh_token 被窃取，攻击者只能使用一次。
+
+### 数据库模型
+
+```sql
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id),
+    token_hash VARCHAR(64) NOT NULL UNIQUE,  -- SHA-256 hash
+    issued_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE,  -- 撤销时间
+    replaced_by_id UUID REFERENCES refresh_tokens(id),  -- 轮换链
+    user_agent VARCHAR(500),
+    ip_address VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+```
+
+### API 端点
+
+**POST /api/v1/auth/login**
+```json
+// Request
+{ "username": "admin", "password": "xxx" }
+
+// Response
+{
+  "access_token": "eyJ...",
+  "refresh_token": "a1b2c3...",
+  "token_type": "bearer",
+  "access_expires_in": 900,
+  "refresh_expires_in": 604800,
+  "user": { "id": "...", "username": "admin", "role": "super_admin" }
+}
+```
+
+**POST /api/v1/auth/refresh**
+```json
+// Request
+{ "refresh_token": "a1b2c3..." }
+
+// Response
+{
+  "access_token": "eyJ...",
+  "refresh_token": "d4e5f6...",  // 新的 refresh_token
+  "token_type": "bearer",
+  "access_expires_in": 900,
+  "refresh_expires_in": 604800
+}
+```
+
+**POST /api/v1/auth/logout**
+```json
+// Request
+{ "refresh_token": "a1b2c3..." }
+
+// Response
+{ "ok": true, "message": "登出成功" }
+```
+
+### 前端自动刷新
+
+代理层 (`auth-utils.ts`) 实现了 401 自动重试：
+
+1. 发起 API 请求
+2. 如果返回 401，调用 `/api/auth/refresh`
+3. 如果刷新成功，用新 token 重试原请求
+4. 如果刷新失败，返回 401，前端跳转登录页
+
+### 验收测试
+
+```bash
+# 1. 运行数据库迁移
+cd services/core-backend
+alembic upgrade head
+
+# 2. 启动 core-backend
+uvicorn app.main:app --reload --port 8000
+
+# 3. 启动 admin-console
+cd apps/admin-console
+npm run dev
+
+# 4. 测试登录
+# 访问 http://localhost:3000/login
+# 登录后检查 cookies（DevTools > Application > Cookies）
+# 应该看到 yt_admin_access 和 yt_admin_refresh
+
+# 5. 测试 refresh（可选：将 access token 有效期改为 1 分钟测试）
+# 等待 access token 过期后访问 /admin/dashboard
+# 应该自动 refresh 并继续可用
+
+# 6. 测试 logout
+# 点击退出登录
+# 检查 cookies 已清除
+# 访问 /admin/* 应重定向到 /login
+```
+
+### 配置项
+
+在 `services/core-backend/.env` 中：
+
+```env
+# Access token 有效期（分钟）
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+
+# Refresh token 有效期（天）
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+```
+
 ## 风险点与下一步
 
-1. **Token 刷新机制** - 当前 token 过期后需要重新登录，可考虑实现 refresh token
+1. ~~**Token 刷新机制**~~ ✅ 已实现 refresh token + rotate
 2. **密码策略** - 建议添加密码复杂度校验和登录失败锁定
 3. **多租户隔离** - 当前 RBAC 未考虑租户边界，需要在数据层面增加隔离
 4. **HTTPS** - 生产环境必须启用 HTTPS 以保护 cookie 传输
 5. **审计日志查询** - 提供审计日志查询 API 供管理员审查操作历史
+6. **Refresh Token 清理** - 定期清理过期/已撤销的 refresh token 记录
