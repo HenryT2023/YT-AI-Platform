@@ -1,10 +1,11 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Loader2, RotateCcw, ChevronDown, ChevronUp, BookOpen, Hash } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, RotateCcw, ChevronDown, ChevronUp, BookOpen, Hash, Flag } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { getOrCreateSessionId, clearSessionId } from '@/lib/session'
 import { npcChat, isNPCChatError, getPolicyModeLabel, getPolicyModeColor, type PolicyMode, type CitationItem } from '@/lib/api'
+import FeedbackModal from '@/components/FeedbackModal'
 
 const NPC_DATA: Record<string, {
   name: string
@@ -46,13 +47,19 @@ interface Message {
   traceId?: string
   followupQuestions?: string[]
   isError?: boolean
+  hasFeedback?: boolean  // 是否已提交纠错
 }
 
 // ============================================================
 // MessageBubble 组件
 // ============================================================
 
-function MessageBubble({ message }: { message: Message }) {
+interface MessageBubbleProps {
+  message: Message
+  onFeedback?: (traceId: string, content: string) => void
+}
+
+function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
   const [showCitations, setShowCitations] = useState(false)
   const [showTrace, setShowTrace] = useState(false)
   
@@ -177,6 +184,26 @@ function MessageBubble({ message }: { message: Message }) {
             </div>
           </div>
         )}
+        
+        {/* 纠错按钮 - 仅对有 traceId 且非错误的消息显示 */}
+        {message.traceId && !message.isError && (
+          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+            {message.hasFeedback ? (
+              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <Flag className="w-3.5 h-3.5" />
+                <span>已纠错</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => onFeedback?.(message.traceId!, message.content)}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors"
+              >
+                <Flag className="w-3.5 h-3.5" />
+                <span>纠错 / 不准确</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -205,6 +232,16 @@ export default function NPCChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // 纠错弹窗状态
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean
+    traceId: string
+    content: string
+  }>({ isOpen: false, traceId: '', content: '' })
+  
+  // 已提交纠错的 trace_id 集合（防重复提交）
+  const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<string>>(new Set())
   
   // 初始化 session
   useEffect(() => {
@@ -281,6 +318,28 @@ export default function NPCChatPage() {
     setIsLoading(false)
   }
   
+  // 打开纠错弹窗
+  const handleOpenFeedback = (traceId: string, content: string) => {
+    // 检查是否已提交过
+    if (submittedFeedbacks.has(traceId)) {
+      return
+    }
+    setFeedbackModal({ isOpen: true, traceId, content })
+  }
+  
+  // 纠错提交成功
+  const handleFeedbackSuccess = () => {
+    const traceId = feedbackModal.traceId
+    // 添加到已提交集合
+    setSubmittedFeedbacks((prev) => new Set(prev).add(traceId))
+    // 更新消息的 hasFeedback 标记
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.traceId === traceId ? { ...msg, hasFeedback: true } : msg
+      )
+    )
+  }
+  
   const handleResetChat = () => {
     // 清除当前 NPC 的 session
     clearSessionId(npcId)
@@ -336,7 +395,11 @@ export default function NPCChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble 
+            key={message.id} 
+            message={message} 
+            onFeedback={handleOpenFeedback}
+          />
         ))}
         
         {isLoading && (
@@ -350,6 +413,15 @@ export default function NPCChatPage() {
         {/* 滚动锚点 */}
         <div ref={messagesEndRef} />
       </div>
+      
+      {/* 纠错弹窗 */}
+      <FeedbackModal
+        isOpen={feedbackModal.isOpen}
+        onClose={() => setFeedbackModal({ isOpen: false, traceId: '', content: '' })}
+        traceId={feedbackModal.traceId}
+        originalResponse={feedbackModal.content}
+        onSuccess={handleFeedbackSuccess}
+      />
       
       {/* Input */}
       <div className="sticky bottom-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-3 safe-area-inset-bottom">
