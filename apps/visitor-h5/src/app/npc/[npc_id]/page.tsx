@@ -1,8 +1,10 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Send, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, Send, Loader2, RotateCcw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { getOrCreateSessionId, clearSessionId } from '@/lib/session'
+import { TENANT_ID, SITE_ID } from '@/lib/config'
 
 const NPC_DATA: Record<string, {
   name: string
@@ -47,6 +49,7 @@ export default function NPCChatPage() {
   
   const npc = NPC_DATA[npcId]
   
+  const [sessionId, setSessionId] = useState<string>('')
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -56,6 +59,15 @@ export default function NPCChatPage() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  
+  // 初始化 session
+  useEffect(() => {
+    if (npcId) {
+      const sid = getOrCreateSessionId(npcId)
+      setSessionId(sid)
+      console.log(`[Session] NPC: ${npcId}, Session: ${sid}`)
+    }
+  }, [npcId])
   
   if (!npc) {
     return (
@@ -92,11 +104,28 @@ export default function NPCChatPage() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `（${npc.name}正在思考...）这是一个模拟回复。后续会接入 AI Orchestrator 服务。`,
+        content: `（${npc.name}正在思考...）这是一个模拟回复。后续会接入 AI Orchestrator 服务。\n\n[Session: ${sessionId}]`,
       }
       setMessages((prev) => [...prev, assistantMessage])
       setIsLoading(false)
     }, 1000)
+  }
+  
+  const handleResetChat = () => {
+    // 清除当前 NPC 的 session
+    clearSessionId(npcId)
+    // 生成新 session
+    const newSessionId = getOrCreateSessionId(npcId)
+    setSessionId(newSessionId)
+    // 重置消息
+    setMessages([
+      {
+        id: '1',
+        role: 'assistant',
+        content: npc?.greeting || '你好，有什么可以帮助你的？',
+      },
+    ])
+    console.log(`[Session] Reset - NPC: ${npcId}, New Session: ${newSessionId}`)
   }
   
   return (
@@ -123,6 +152,14 @@ export default function NPCChatPage() {
               {npc.title}
             </p>
           </div>
+          
+          <button
+            onClick={handleResetChat}
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            title="重置对话"
+          >
+            <RotateCcw className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+          </button>
         </div>
       </header>
       
