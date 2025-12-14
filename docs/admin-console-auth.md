@@ -165,10 +165,94 @@ async def list_npcs(
     ...
 ```
 
+## RBAC 权限矩阵
+
+### 角色定义
+
+| 角色 | 说明 |
+|------|------|
+| `super_admin` | 超级管理员，全部权限 |
+| `tenant_admin` | 租户管理员 |
+| `site_admin` | 站点管理员 |
+| `operator` | 运营人员，可执行大部分操作 |
+| `viewer` | 只读用户，仅查看权限 |
+| `visitor` | 游客，**不允许登录后台** |
+
+### API 权限矩阵
+
+| API 端点 | Admin | Operator | Viewer |
+|----------|-------|----------|--------|
+| **Releases** |
+| `GET /releases` | ✓ | ✓ | ✓ |
+| `GET /releases/{id}` | ✓ | ✓ | ✓ |
+| `POST /releases` (创建) | ✓ | ✗ | ✗ |
+| `POST /releases/{id}/activate` | ✓ | ✗ | ✗ |
+| `POST /releases/{id}/rollback` | ✓ | ✗ | ✗ |
+| **Policies** |
+| `GET /policies/evidence-gate/*` | ✓ | ✓ | ✓ |
+| `POST /policies/evidence-gate` | ✓ | ✗ | ✗ |
+| `POST /policies/evidence-gate/rollback/*` | ✓ | ✗ | ✗ |
+| **Feedback** |
+| `GET /feedback` | ✓ | ✓ | ✓ |
+| `GET /feedback/stats` | ✓ | ✓ | ✓ |
+| `POST /feedback/{id}/triage` | ✓ | ✓ | ✗ |
+| `POST /feedback/{id}/status` | ✓ | ✓ | ✗ |
+| **Alerts** |
+| `GET /alerts/*` | ✓ | ✓ | ✓ |
+| `POST /alerts/silences` | ✓ | ✓ | ✗ |
+| `DELETE /alerts/silences/{id}` | ✓ | ✓ | ✗ |
+
+### 错误响应示例
+
+**401 Unauthorized** - 未登录或 token 无效：
+
+```json
+{
+  "detail": "未登录或登录已过期，请重新登录"
+}
+```
+
+**403 Forbidden** - 角色权限不足：
+
+```json
+{
+  "detail": "权限不足：当前角色 [viewer] 无权执行此操作，需要角色: [super_admin, tenant_admin, site_admin]"
+}
+```
+
+**403 Forbidden** - 账户被禁用：
+
+```json
+{
+  "detail": "账户已被禁用，请联系管理员"
+}
+```
+
+### RBAC 测试脚本
+
+```bash
+cd services/core-backend
+
+# 运行权限冒烟测试
+python scripts/rbac_smoke_test.py
+
+# 指定 API 地址
+python scripts/rbac_smoke_test.py --api-url http://localhost:8000
+
+# 跳过用户创建（如果测试用户已存在）
+python scripts/rbac_smoke_test.py --skip-setup
+```
+
+测试脚本会：
+1. 创建三个测试用户（admin/operator/viewer）
+2. 登录获取 token
+3. 测试各端点的权限控制
+4. 输出测试结果表格
+
 ## 风险点与下一步
 
 1. **Token 刷新机制** - 当前 token 过期后需要重新登录，可考虑实现 refresh token
 2. **密码策略** - 建议添加密码复杂度校验和登录失败锁定
-3. **审计日志** - 记录管理员操作日志
-4. **多租户隔离** - 当前 RBAC 未考虑租户边界
-5. **HTTPS** - 生产环境必须启用 HTTPS 以保护 cookie 传输
+3. **多租户隔离** - 当前 RBAC 未考虑租户边界，需要在数据层面增加隔离
+4. **HTTPS** - 生产环境必须启用 HTTPS 以保护 cookie 传输
+5. **审计日志查询** - 提供审计日志查询 API 供管理员审查操作历史
