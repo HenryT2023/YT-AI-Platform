@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.admin_auth import require_internal_api_key, get_operator
+from app.core.rbac import AdminOnly, ViewerOrAbove
 from app.core.audit import log_audit, AuditAction, TargetType
 from app.core.policy_service import PolicyService
 
@@ -122,9 +122,9 @@ async def list_policy_versions(db: AsyncSession = Depends(get_db)):
 async def set_active_policy(
     request: PolicyUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
-    """设置新的活跃策略（需要鉴权，写入数据库）"""
+    """设置新的活跃策略（仅管理员）"""
     # 验证必填字段
     if not request.version or not request.description:
         raise HTTPException(
@@ -162,7 +162,7 @@ async def set_active_policy(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor=request.operator,
+        actor=current_user.username,
         action=AuditAction.POLICY_CREATE,
         target_type=TargetType.POLICY,
         target_id=request.version,
@@ -176,9 +176,9 @@ async def set_active_policy(
 async def rollback_policy(
     version: str,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
-    """回滚到指定版本（需要鉴权，通过设置 active 实现）"""
+    """回滚到指定版本（仅管理员）"""
     service = PolicyService(db)
     
     # 设置目标版本为活跃
@@ -193,7 +193,7 @@ async def rollback_policy(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action=AuditAction.POLICY_ROLLBACK,
         target_type=TargetType.POLICY,
         target_id=version,
@@ -206,9 +206,9 @@ async def rollback_policy(
 @router.post("/evidence-gate/export", response_model=Dict[str, str])
 async def export_policy(
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
-    """导出当前活跃策略到文件（用于 Git 备份）"""
+    """导出当前活跃策略到文件（仅管理员）"""
     service = PolicyService(db)
     export_path = await service.export_to_file("evidence-gate")
     

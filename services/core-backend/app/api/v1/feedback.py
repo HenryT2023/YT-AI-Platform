@@ -21,7 +21,7 @@ from sqlalchemy import func, select, and_, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.admin_auth import require_internal_api_key, get_operator
+from app.core.rbac import OperatorOrAbove, ViewerOrAbove
 from app.core.audit import log_audit, AuditAction, TargetType
 from app.database.models.user_feedback import (
     UserFeedback,
@@ -540,10 +540,10 @@ async def triage_feedback(
     feedback_id: str,
     request: FeedbackTriage,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: OperatorOrAbove = None,
 ):
     """
-    分派反馈（需要鉴权）
+    分派反馈（运营人员及以上）
     
     应用自动分派规则（或手动指定），设置 assignee/group 和 SLA
     """
@@ -598,7 +598,7 @@ async def triage_feedback(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action=AuditAction.FEEDBACK_TRIAGE,
         target_type=TargetType.FEEDBACK,
         target_id=feedback_id,
@@ -617,10 +617,10 @@ async def update_feedback_status(
     feedback_id: str,
     request: FeedbackStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: OperatorOrAbove = None,
 ):
     """
-    更新反馈状态
+    更新反馈状态（运营人员及以上）
     
     状态机：new/pending → triaged → in_progress → resolved → closed
     """
@@ -668,7 +668,7 @@ async def update_feedback_status(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action=AuditAction.FEEDBACK_STATUS_UPDATE,
         target_type=TargetType.FEEDBACK,
         target_id=feedback_id,

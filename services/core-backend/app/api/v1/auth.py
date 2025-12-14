@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_token, verify_password
+from app.core.rbac import ALLOWED_LOGIN_ROLES
 from app.db import get_db
 from app.database.models.user import User, UserRole
 
@@ -93,11 +94,11 @@ async def admin_login(
             detail="用户名或密码错误",
         )
     
-    # 检查是否为系统用户（非游客）
-    if user.role == UserRole.VISITOR:
+    # 检查是否为允许登录后台的角色
+    if user.role not in ALLOWED_LOGIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="游客账户无法登录管理后台",
+            detail=f"角色 [{user.role}] 无权登录管理后台，仅允许 admin/operator/viewer 角色",
         )
     
     # 检查账户状态

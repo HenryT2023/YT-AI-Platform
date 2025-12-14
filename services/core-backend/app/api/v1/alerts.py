@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.core.rbac import OperatorOrAbove, ViewerOrAbove
 from app.core.alerts_evaluator import (
     AlertsEvaluator,
     EvaluationResult,
@@ -524,9 +525,10 @@ async def get_event(
 async def create_silence_rule(
     request: SilenceCreateRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: OperatorOrAbove = None,
 ) -> SilenceResponse:
     """
-    创建告警静默规则
+    创建告警静默规则（运营人员及以上）
     
     静默规则可以按 alert_code 或 severity 匹配：
     - 指定 alert_code: 仅静默该告警
@@ -549,7 +551,7 @@ async def create_silence_rule(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor=request.created_by,
+        actor=current_user.username,
         action="alerts.silence_created",
         target_type="alerts_silence",
         target_id=silence.id,
@@ -617,8 +619,9 @@ async def list_silence_rules(
 async def delete_silence_rule(
     silence_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: OperatorOrAbove = None,
 ) -> Dict[str, Any]:
-    """删除静默规则"""
+    """删除静默规则（运营人员及以上）"""
     success = await delete_silence(db, silence_id)
     
     if not success:
@@ -630,7 +633,7 @@ async def delete_silence_rule(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action="alerts.silence_deleted",
         target_type="alerts_silence",
         target_id=silence_id,

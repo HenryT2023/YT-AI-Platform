@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
-from app.core.admin_auth import require_internal_api_key
+from app.core.rbac import AdminOnly, ViewerOrAbove
 from app.core.audit import log_audit, AuditAction, TargetType
 from app.core.release_service import ReleaseService, ReleasePayload
 from app.core.release_validator import validate_release, ValidationResult
@@ -90,9 +90,9 @@ class ValidationResponse(BaseModel):
 async def create_release(
     request: ReleaseCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
-    """创建 draft release"""
+    """创建 draft release（仅管理员）"""
     log = logger.bind(
         tenant_id=request.tenant_id,
         site_id=request.site_id,
@@ -119,7 +119,7 @@ async def create_release(
     # 记录审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action="release.create",
         target_type="release",
         target_id=release.id,
@@ -253,10 +253,10 @@ async def get_release(
 async def activate_release(
     release_id: str,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
     """
-    激活 release
+    激活 release（仅管理员）
     
     激活前会进行完整性校验：
     - evidence_gate_policy_version 必须存在
@@ -290,7 +290,7 @@ async def activate_release(
         # 记录失败审计日志
         await log_audit(
             db=db,
-            actor="admin_console",
+            actor=current_user.username,
             action="release.activate_failed",
             target_type="release",
             target_id=release_id,
@@ -310,7 +310,7 @@ async def activate_release(
     
     # 校验通过，执行激活
     try:
-        release = await service.activate(release_id, operator="admin_console")
+        release = await service.activate(release_id, operator=current_user.username)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -320,7 +320,7 @@ async def activate_release(
     # 记录成功审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action="release.activate_success",
         target_type="release",
         target_id=release_id,
@@ -348,10 +348,10 @@ async def activate_release(
 async def rollback_release(
     release_id: str,
     db: AsyncSession = Depends(get_db),
-    _: str = Depends(require_internal_api_key),
+    current_user: AdminOnly = None,
 ):
     """
-    回滚到指定 release
+    回滚到指定 release（仅管理员）
     
     回滚前会进行完整性校验（与 activate 相同）
     """
@@ -379,7 +379,7 @@ async def rollback_release(
         # 记录失败审计日志
         await log_audit(
             db=db,
-            actor="admin_console",
+            actor=current_user.username,
             action="release.rollback_failed",
             target_type="release",
             target_id=release_id,
@@ -399,7 +399,7 @@ async def rollback_release(
     
     # 校验通过，执行回滚
     try:
-        release = await service.rollback(release_id, operator="admin_console")
+        release = await service.rollback(release_id, operator=current_user.username)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -409,7 +409,7 @@ async def rollback_release(
     # 记录成功审计日志
     await log_audit(
         db=db,
-        actor="admin_console",
+        actor=current_user.username,
         action="release.rollback_success",
         target_type="release",
         target_id=release_id,
