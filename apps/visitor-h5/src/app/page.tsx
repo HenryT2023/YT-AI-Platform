@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageCircle, Sparkles } from 'lucide-react'
+import { MessageCircle, Sparkles, Activity } from 'lucide-react'
 
 const NPC_LIST = [
   {
@@ -79,13 +79,22 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700">
-        <div className="px-4 py-4">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-            🌾 严田 AI
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            选择一位村民，开始你的故事
-          </p>
+        <div className="px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+              🌾 严田 AI
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              选择一位村民，开始你的故事
+            </p>
+          </div>
+          <Link
+            href="/health"
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="系统状态"
+          >
+            <Activity className="w-5 h-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+          </Link>
         </div>
       </header>
       
