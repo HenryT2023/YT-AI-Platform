@@ -356,15 +356,21 @@ async def admin_login(
     user.last_login_at = datetime.now(timezone.utc)
     user.last_login_ip = client_ip
     
-    # 生成 access token (JWT)
+    # 生成 access token (JWT)，包含 tenant/site scope
     access_expires_minutes = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+    
+    # 构建 scope claims
+    extra_claims = {
+        "username": user.username,
+        "role": user.role,
+        "tenant_id": user.tenant_id,  # 可能为 None（super_admin）
+        "site_ids": user.allowed_site_ids or [],  # 空列表表示可访问所有
+    }
+    
     access_token = create_access_token(
         subject=str(user.id),
         expires_delta=timedelta(minutes=access_expires_minutes),
-        extra_claims={
-            "username": user.username,
-            "role": user.role,
-        },
+        extra_claims=extra_claims,
     )
     
     # 生成 refresh token（随机串）并存入数据库
@@ -503,15 +509,20 @@ async def refresh_access_token(
             detail=f"角色 [{user.role}] 无权访问管理后台",
         )
     
-    # 生成新的 access token
+    # 生成新的 access token，包含 tenant/site scope
     access_expires_minutes = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+    
+    extra_claims = {
+        "username": user.username,
+        "role": user.role,
+        "tenant_id": user.tenant_id,
+        "site_ids": user.allowed_site_ids or [],
+    }
+    
     access_token = create_access_token(
         subject=str(user.id),
         expires_delta=timedelta(minutes=access_expires_minutes),
-        extra_claims={
-            "username": user.username,
-            "role": user.role,
-        },
+        extra_claims=extra_claims,
     )
     
     # 生成新的 refresh token 并 rotate
