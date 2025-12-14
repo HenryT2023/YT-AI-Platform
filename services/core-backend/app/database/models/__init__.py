@@ -19,6 +19,7 @@ from app.database.models.npc_prompt import NPCPrompt
 from app.database.models.vector_sync_job import VectorSyncJob, VectorSyncStatus
 from app.database.models.embedding_usage import EmbeddingUsage, EmbeddingStatus, EmbeddingObjectType
 from app.database.models.alerts import AlertEvent, AlertSilence, AlertStatus
+from app.database.models.refresh_token import RefreshToken
 
 __all__ = [
     # Core
@@ -59,4 +60,6 @@ __all__ = [
     "AlertEvent",
     "AlertSilence",
     "AlertStatus",
+    # Auth
+    "RefreshToken",
 ]

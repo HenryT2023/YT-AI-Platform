@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const COOKIE_NAME = 'yt_admin_token';
+// Cookie 名称
+const ACCESS_COOKIE = 'yt_admin_access';
+const REFRESH_COOKIE = 'yt_admin_refresh';
 
 // 需要认证的路径
 const PROTECTED_PATHS = [
@@ -17,6 +19,7 @@ const PROTECTED_PATHS = [
 const PUBLIC_PATHS = [
   '/login',
   '/api/auth/login',
+  '/api/auth/refresh',
 ];
 
 export function middleware(request: NextRequest) {
@@ -34,17 +37,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 获取 token
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  // 获取 tokens
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
 
-  // 没有 token，重定向到登录页
-  if (!token) {
+  // 没有任何 token，重定向到登录页
+  if (!accessToken && !refreshToken) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 有 token，继续请求
+  // 有 access token 或 refresh token，继续请求
+  // 如果 access token 过期，代理层会自动尝试 refresh
   return NextResponse.next();
 }
 

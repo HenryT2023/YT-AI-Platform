@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 const CORE_BACKEND_URL = process.env.CORE_BACKEND_URL || 'http://localhost:8000';
@@ -11,40 +11,43 @@ const REFRESH_COOKIE = 'yt_admin_refresh';
 const ACCESS_MAX_AGE = 60 * 15; // 15 分钟
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 天
 
-export async function POST(req: NextRequest) {
+export async function POST() {
+  const cookieStore = await cookies();
+  
+  // 获取 refresh token
+  const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+  
+  if (!refreshToken) {
+    return NextResponse.json(
+      { error: '未找到刷新令牌' },
+      { status: 401 }
+    );
+  }
+  
   try {
-    const body = await req.json();
-    const { username, password } = body;
-
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: '用户名和密码不能为空' },
-        { status: 400 }
-      );
-    }
-
-    // 转发到 core-backend
-    const response = await fetch(`${CORE_BACKEND_URL}/api/v1/auth/login`, {
+    // 调用后端 refresh 端点
+    const response = await fetch(`${CORE_BACKEND_URL}/api/v1/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ refresh_token: refreshToken }),
     });
-
+    
     const data = await response.json();
-
+    
     if (!response.ok) {
+      // 刷新失败，清除 cookies
+      cookieStore.delete(ACCESS_COOKIE);
+      cookieStore.delete(REFRESH_COOKIE);
+      
       return NextResponse.json(
-        { error: data.detail || '登录失败' },
+        { error: data.detail || '刷新令牌失败' },
         { status: response.status }
       );
     }
-
-    // 设置 HttpOnly cookies
-    const cookieStore = await cookies();
     
-    // Access token cookie（短有效期）
+    // 更新 cookies
     cookieStore.set(ACCESS_COOKIE, data.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -53,7 +56,6 @@ export async function POST(req: NextRequest) {
       path: '/',
     });
     
-    // Refresh token cookie（长有效期）
     cookieStore.set(REFRESH_COOKIE, data.refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -61,16 +63,12 @@ export async function POST(req: NextRequest) {
       maxAge: data.refresh_expires_in || REFRESH_MAX_AGE,
       path: '/',
     });
-
-    // 返回用户信息（不包含 token）
-    return NextResponse.json({
-      success: true,
-      user: data.user,
-    });
+    
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error('Refresh error:', error);
     return NextResponse.json(
-      { error: '登录服务暂时不可用' },
+      { error: '刷新服务暂时不可用' },
       { status: 500 }
     );
   }

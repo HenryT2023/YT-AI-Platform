@@ -2,13 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 const CORE_BACKEND_URL = process.env.CORE_BACKEND_URL || 'http://localhost:8000';
-const COOKIE_NAME = 'yt_admin_token';
+
+// Cookie 名称
+const ACCESS_COOKIE = 'yt_admin_access';
+const REFRESH_COOKIE = 'yt_admin_refresh';
 
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
 
-  if (!token) {
+  if (!accessToken) {
+    // 没有 access token，检查是否有 refresh token
+    const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+    if (refreshToken) {
+      // 有 refresh token，返回特殊状态让前端触发 refresh
+      return NextResponse.json(
+        { error: '访问令牌已过期', needRefresh: true },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       { error: '未登录' },
       { status: 401 }
@@ -19,14 +31,22 @@ export async function GET(req: NextRequest) {
     const response = await fetch(`${CORE_BACKEND_URL}/api/v1/auth/me`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 
     if (!response.ok) {
-      // Token 无效，清除 cookie
       if (response.status === 401) {
-        cookieStore.delete(COOKIE_NAME);
+        // Access token 无效，检查是否有 refresh token
+        const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
+        if (refreshToken) {
+          return NextResponse.json(
+            { error: '访问令牌已过期', needRefresh: true },
+            { status: 401 }
+          );
+        }
+        // 没有 refresh token，清除所有 cookies
+        cookieStore.delete(ACCESS_COOKIE);
       }
       return NextResponse.json(
         { error: '登录已过期' },
