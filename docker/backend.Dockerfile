@@ -24,8 +24,8 @@ FROM base as development
 
 ARG SERVICE_PATH
 
-# 复制依赖文件
-COPY ${SERVICE_PATH}/pyproject.toml ./
+# 复制依赖文件和 README
+COPY ${SERVICE_PATH}/pyproject.toml ${SERVICE_PATH}/README.md ./
 
 # 安装依赖
 RUN pip install -e ".[dev]" || pip install .
@@ -42,8 +42,8 @@ FROM base as production
 
 ARG SERVICE_PATH
 
-# 复制依赖文件
-COPY ${SERVICE_PATH}/pyproject.toml ./
+# 复制依赖文件和 README
+COPY ${SERVICE_PATH}/pyproject.toml ${SERVICE_PATH}/README.md ./
 
 # 安装生产依赖
 RUN pip install .

@@ -69,7 +69,7 @@ class KnowledgeEntry(Base, AuditMixin):
     search_vector: Mapped[Optional[str]] = mapped_column(TSVECTOR)
 
     # 元数据
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    entry_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     # 引用计数（被 AI 引用的次数）
     citation_count: Mapped[int] = mapped_column(Integer, default=0)

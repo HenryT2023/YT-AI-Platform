@@ -40,7 +40,7 @@ class POI(Base, AuditMixin):
     audio_guide_asset_id: Mapped[Optional[UUID]] = mapped_column(PG_UUID(as_uuid=True))
 
     tags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(50)))
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    poi_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20), default="active")

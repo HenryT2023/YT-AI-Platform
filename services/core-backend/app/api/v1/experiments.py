@@ -12,7 +12,7 @@ A/B 实验 API
 
 import hashlib
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status

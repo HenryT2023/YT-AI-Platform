@@ -7,10 +7,13 @@ JWT 认证、密码哈希、权限验证
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

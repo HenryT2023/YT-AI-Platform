@@ -74,7 +74,7 @@ services:
     environment:
       - ENV=development
       - DEBUG=true
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
@@ -129,7 +129,7 @@ services:
       - ./data:/data
     environment:
       - ENV=development
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-yantian}:${POSTGRES_PASSWORD:-yantian_dev_password}@postgres:5432/${POSTGRES_DB:-yantian}
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
       - QDRANT_HOST=qdrant

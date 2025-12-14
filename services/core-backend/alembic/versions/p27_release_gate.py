@@ -53,12 +53,25 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime, nullable=False, index=True),
     )
     
-    # 添加 release_id 到 trace_ledger
-    op.add_column(
-        'trace_ledger',
-        sa.Column('release_id', postgresql.UUID(as_uuid=False), nullable=True, index=True),
-    )
-    op.create_index('ix_trace_ledger_release_id', 'trace_ledger', ['release_id'])
+    # 添加 release_id 到 trace_ledger（如果不存在）
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='trace_ledger' AND column_name='release_id'"
+    ))
+    if not result.fetchone():
+        op.add_column(
+            'trace_ledger',
+            sa.Column('release_id', postgresql.UUID(as_uuid=False), nullable=True),
+        )
+    
+    # 创建索引（如果不存在）
+    result = conn.execute(sa.text(
+        "SELECT indexname FROM pg_indexes "
+        "WHERE tablename='trace_ledger' AND indexname='ix_trace_ledger_release_id'"
+    ))
+    if not result.fetchone():
+        op.create_index('ix_trace_ledger_release_id', 'trace_ledger', ['release_id'])
 
 
 def downgrade() -> None:

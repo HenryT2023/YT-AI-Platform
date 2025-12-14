@@ -67,7 +67,7 @@ class ToolCallLog(Base, TimestampMixin):
     cost_usd: Mapped[Optional[float]] = mapped_column(Float)
 
     # 元数据
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    call_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     def __repr__(self) -> str:
         return f"<ToolCallLog(id={self.id}, tool={self.tool_name}, status={self.status})>"
