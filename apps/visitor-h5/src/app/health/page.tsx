@@ -58,7 +58,7 @@ async function checkService(name: string, url: string): Promise<ServiceStatus> {
 
 export default function HealthPage() {
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: 'AI Orchestrator', url: `${AI_ORCH_BASE}/healthz`, status: 'checking' },
+    { name: 'AI Orchestrator', url: `${AI_ORCH_BASE}/health`, status: 'checking' },
     { name: 'Core Backend', url: `${CORE_BASE}/health`, status: 'checking' },
   ])
   const [lastCheck, setLastCheck] = useState<Date | null>(null)

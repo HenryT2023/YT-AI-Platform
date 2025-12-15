@@ -8,7 +8,7 @@ GET /v1/traces/{trace_id} - 追踪回放
 import structlog
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.agent import AgentRuntime, ChatRequest, ChatResponse
