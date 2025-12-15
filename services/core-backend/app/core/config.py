@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     AUTH_LOCKOUT_MINUTES: int = 10  # 锁定时间（分钟）
 
     # CORS 配置
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
 
     # 内部 API Key（服务间通信）
     INTERNAL_API_KEY: str = "your-internal-api-key"

@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     CACHE_DEFAULT_TTL: int = 300
 
     # CORS 配置
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
 
     # LLM 配置
     LLM_PROVIDER: str = "baidu"  # baidu / openai / qwen / ollama

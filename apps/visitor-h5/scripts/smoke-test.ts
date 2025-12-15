@@ -123,7 +123,7 @@ async function main() {
     await feedbackBtn.click()
     
     // 等待弹窗出现
-    await page.waitForSelector('text=提交纠错反馈', { timeout: 5000 })
+    await page.waitForSelector('text=纠错反馈', { timeout: 5000 })
     
     // 选择错误类型
     await page.getByText('事实不准确').click()
