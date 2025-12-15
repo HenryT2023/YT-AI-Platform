@@ -390,5 +390,5 @@ def reset_policy_loader() -> None:
 def get_policy_version() -> str:
     """获取当前策略版本（用于 trace snapshot）"""
     loader = get_policy_loader()
-    policy = loader.load_policy()
+    policy = loader.load()
     return policy.version if policy else "unknown"

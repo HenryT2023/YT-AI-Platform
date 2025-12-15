@@ -401,7 +401,7 @@ export default function NPCChatPage() {
   }
   
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 dark:bg-slate-900">
+    <div className="h-[100dvh] flex flex-col bg-slate-100 dark:bg-slate-900 overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-4 py-3">
@@ -468,7 +468,7 @@ export default function NPCChatPage() {
       />
       
       {/* Input */}
-      <div className="sticky bottom-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-3 safe-area-inset-bottom">
+      <div className="flex-shrink-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-3 safe-area-inset-bottom">
         <div className="flex items-end gap-2">
           <div className="flex-1 relative">
             <textarea

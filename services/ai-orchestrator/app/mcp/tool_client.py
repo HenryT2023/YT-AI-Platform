@@ -64,7 +64,7 @@ class MCPToolClient:
                 tools = [t for t in tools if t.ai_callable]
             return tools
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             params = {"ai_callable_only": ai_callable_only}
             if category:
                 params["category"] = category
@@ -89,7 +89,7 @@ class MCPToolClient:
 
     async def get_openai_tools(self) -> List[Dict[str, Any]]:
         """获取 OpenAI function calling 格式的工具列表"""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/mcp-tools/openai-format",
             )
@@ -142,7 +142,7 @@ class MCPToolClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/mcp-tools/execute/internal",
                     json=request_body,

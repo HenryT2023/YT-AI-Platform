@@ -50,10 +50,11 @@ class EvidenceGate:
 
     def __init__(
         self,
-        min_citations_for_fact: int = 1,
+        min_citations_for_fact: Optional[int] = None,
         classifier: Optional[QueryIntentClassifier] = None,
     ):
-        self.min_citations = min_citations_for_fact
+        from app.core.config import settings
+        self.min_citations = min_citations_for_fact if min_citations_for_fact is not None else settings.MIN_EVIDENCE_COUNT
         self.classifier = classifier or get_intent_classifier()
 
     def check_before_llm(

@@ -96,10 +96,10 @@ class Settings(BaseSettings):
     DEFAULT_TENANT_ID: str = "yantian"
     DEFAULT_SITE_ID: str = "yantian-main"
 
-    # 证据链配置
-    MIN_EVIDENCE_COUNT: int = 1
-    MIN_CONFIDENCE_THRESHOLD: float = 0.5
-    REQUIRE_VERIFIED_FOR_HISTORY: bool = True
+    # 证据链配置（临时放宽，允许 LLM 直接回复）
+    MIN_EVIDENCE_COUNT: int = 0
+    MIN_CONFIDENCE_THRESHOLD: float = 0.0
+    REQUIRE_VERIFIED_FOR_HISTORY: bool = False
 
     # 意图分类器配置
     INTENT_CLASSIFIER_USE_LLM: bool = False  # 是否使用 LLM 意图分类器

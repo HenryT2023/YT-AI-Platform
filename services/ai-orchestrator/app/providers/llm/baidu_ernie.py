@@ -34,9 +34,23 @@ from app.providers.llm.base import (
 
 logger = structlog.get_logger(__name__)
 
-# 百度 API 端点
+# 百度千帆 API 端点（新版 V2 API）
+# 文档: https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Fm2vrveyu
+BAIDU_QIANFAN_BASE = "https://qianfan.baidubce.com/v2"
+BAIDU_CHAT_ENDPOINT = f"{BAIDU_QIANFAN_BASE}/chat/completions"
+
+# 模型名称映射（新版 API 使用统一端点，通过 model 参数指定模型）
+BAIDU_MODEL_MAPPING = {
+    "ernie-bot-4": "ernie-4.0-8k",
+    "ernie-4.0-8k": "ernie-4.0-8k",
+    "ernie-bot-turbo": "ernie-3.5-8k",
+    "ernie-bot": "ernie-3.5-8k",
+    "ernie-3.5-8k": "ernie-3.5-8k",
+}
+
+# 旧版 API 端点（备用）
 BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
-BAIDU_CHAT_ENDPOINTS = {
+BAIDU_CHAT_ENDPOINTS_LEGACY = {
     "ernie-bot-4": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions_pro",
     "ernie-4.0-8k": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions_pro",
     "ernie-bot-turbo": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/eb-instant",
@@ -105,7 +119,7 @@ class BaiduERNIEProvider(LLMProvider):
         log.info("fetching_access_token")
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, trust_env=False) as client:
                 response = await client.post(
                     BAIDU_TOKEN_URL,
                     params={
@@ -305,42 +319,52 @@ class BaiduERNIEProvider(LLMProvider):
         )
 
     async def _do_generate(self, request: LLMRequest) -> LLMResponse:
-        """执行单次生成"""
-        access_token = await self._get_access_token()
-        endpoint = self._get_chat_endpoint()
+        """执行单次生成（使用新版千帆 V2 API）"""
+        # 构建 Authorization header（Bearer bce-v3/API_KEY/SECRET_KEY）
+        auth_header = f"Bearer bce-v3/{self._api_key}/{self._secret_key}"
+        
+        # 获取模型名称
+        model_name = BAIDU_MODEL_MAPPING.get(self._model, "ernie-4.0-8k")
 
         messages = self._build_messages(request)
 
+        # 新版 API payload 格式
         payload = {
+            "model": model_name,
             "messages": messages,
             "temperature": request.temperature,
-            "max_output_tokens": request.max_tokens,
+            "max_tokens": request.max_tokens,
         }
 
-        # 添加 system 参数（ERNIE 4.0 支持）
+        # 添加 system message（新版 API 通过 messages 传递）
         if request.system_prompt:
-            payload["system"] = request.system_prompt
+            payload["messages"] = [
+                {"role": "system", "content": request.system_prompt}
+            ] + messages
 
         start_time = time.time()
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, trust_env=False) as client:
                 response = await client.post(
-                    endpoint,
-                    params={"access_token": access_token},
+                    BAIDU_CHAT_ENDPOINT,
                     json=payload,
-                    headers={"Content-Type": "application/json"},
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": auth_header,
+                    },
                 )
 
                 latency_ms = int((time.time() - start_time) * 1000)
                 data = response.json()
 
                 # 检查错误
-                if "error_code" in data:
+                if "error" in data:
                     raise self._classify_error(response.status_code, data)
 
-                # 解析响应
-                result_text = data.get("result", "")
+                # 解析响应（新版 API 格式）
+                choices = data.get("choices", [])
+                result_text = choices[0]["message"]["content"] if choices else ""
                 usage = data.get("usage", {})
 
                 return LLMResponse(

@@ -92,7 +92,7 @@ class ReleaseClient:
         log = logger.bind(tenant_id=tenant_id, site_id=site_id)
         
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
+            async with httpx.AsyncClient(timeout=2.0, trust_env=False) as client:
                 params = {
                     "tenant_id": tenant_id,
                     "site_id": site_id,

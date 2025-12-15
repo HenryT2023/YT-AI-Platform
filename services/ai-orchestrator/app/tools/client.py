@@ -66,7 +66,7 @@ class ToolClient:
         """获取可用工具列表"""
         log = logger.bind(trace_id=ctx.trace_id)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/list",
@@ -96,7 +96,7 @@ class ToolClient:
         """调用工具"""
         log = logger.bind(trace_id=ctx.trace_id, tool_name=tool_name)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             try:
                 response = await client.post(
                     f"{self.base_url}/call",
@@ -247,7 +247,7 @@ class ToolClient:
         """创建追踪记录（通过 core-backend API）"""
         log = logger.bind(trace_id=ctx.trace_id)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             try:
                 from datetime import datetime
 
@@ -296,7 +296,7 @@ class ToolClient:
 
     async def get_trace(self, trace_id: str, ctx: ToolContext) -> Optional[Dict[str, Any]]:
         """获取追踪记录"""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
             try:
                 response = await client.get(
                     f"{settings.CORE_BACKEND_URL}/api/v1/trace/{trace_id}",

@@ -166,6 +166,9 @@ def get_llm_client() -> LLMClient:
         return OpenAIClient()
     elif provider == "qwen":
         return QwenClient()
+    elif provider == "baidu":
+        from app.providers.llm.baidu_ernie import BaiduERNIEProvider
+        return BaiduERNIEProvider()
     else:
         logger.warning(f"Unknown LLM provider: {provider}, falling back to OpenAI")
         return OpenAIClient()

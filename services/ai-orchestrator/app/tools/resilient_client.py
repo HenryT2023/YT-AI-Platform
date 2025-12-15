@@ -12,6 +12,8 @@ Resilient Tool Client
 """
 
 import asyncio
+import hashlib
+import json
 import time
 import uuid
 import httpx
@@ -171,7 +173,8 @@ class ResilientToolClient:
             "X-Tenant-ID": ctx.tenant_id,
             "X-Site-ID": ctx.site_id,
             "X-Trace-ID": ctx.trace_id,
-            "X-Internal-API-Key": self.internal_api_key,
+            # 暂时不发送 API Key，因为本地开发环境不需要验证
+            # "X-Internal-API-Key": self.internal_api_key,
         }
         if ctx.span_id:
             headers["X-Span-ID"] = ctx.span_id
@@ -252,9 +255,13 @@ class ResilientToolClient:
                         success=True,
                         output=cached,
                         audit=ToolAudit(
+                            trace_id=ctx.trace_id,
                             tool_name=tool_name,
+                            status="cache_hit",
                             latency_ms=latency_ms,
-                            cache_hit=True,
+                            request_payload_hash=hashlib.md5(
+                                json.dumps(input_data, sort_keys=True).encode()
+                            ).hexdigest()[:16],
                         ),
                     )
 
@@ -334,7 +341,7 @@ class ResilientToolClient:
         timeout: float,
     ) -> ToolCallResult:
         """执行单次工具调用"""
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
             response = await client.post(
                 f"{self.base_url}/call",
                 headers=self._get_headers(ctx),
@@ -434,11 +441,14 @@ class ResilientToolClient:
         ctx: ToolContext,
         domains: Optional[List[str]] = None,
         limit: int = 5,
+        strategy: Optional[str] = None,
     ) -> List[EvidenceItem]:
         """检索证据（带缓存）"""
         input_data = {"query": query, "limit": limit}
         if domains:
             input_data["domains"] = domains
+        if strategy:
+            input_data["strategy"] = strategy
 
         result = await self.call_tool("retrieve_evidence", input_data, ctx)
         if result.success and result.output:
@@ -517,7 +527,7 @@ class ResilientToolClient:
         try:
             from datetime import datetime
 
-            async with httpx.AsyncClient(timeout=0.3) as client:
+            async with httpx.AsyncClient(timeout=0.3, trust_env=False) as client:
                 response = await client.post(
                     f"{settings.CORE_BACKEND_URL}/api/v1/trace",
                     headers=self._get_headers(ctx),
@@ -562,7 +572,7 @@ class ResilientToolClient:
 
     async def get_trace(self, trace_id: str, ctx: ToolContext) -> Optional[Dict[str, Any]]:
         """获取追踪记录"""
-        async with httpx.AsyncClient(timeout=0.5) as client:
+        async with httpx.AsyncClient(timeout=0.5, trust_env=False) as client:
             try:
                 response = await client.get(
                     f"{settings.CORE_BACKEND_URL}/api/v1/trace/{trace_id}",

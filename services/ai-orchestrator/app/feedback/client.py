@@ -72,7 +72,7 @@ class FeedbackClient:
         )
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
                 response = await client.post(
                     f"{self.base_url}/api/v1/feedback",
                     json=submission.model_dump(),

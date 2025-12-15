@@ -79,6 +79,7 @@ class ExperimentClient:
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=httpx.Timeout(self.timeout),
+                trust_env=False,
             )
         return self._client
     
