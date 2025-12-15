@@ -30,11 +30,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # 数据库配置
-    DATABASE_URL: str = "postgresql+asyncpg://yantian:yantian@localhost:5432/yantian"
+    DATABASE_URL: str = "postgresql+asyncpg://yantian:yantian_dev_password@localhost:5432/yantian"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "yantian"
-    POSTGRES_PASSWORD: str = "yantian"
+    POSTGRES_PASSWORD: str = "yantian_dev_password"
     POSTGRES_DB: str = "yantian"
 
     # 数据库连接池配置
