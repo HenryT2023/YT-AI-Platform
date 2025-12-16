@@ -30,6 +30,11 @@ class EmbeddingResult:
     model: str
 
 
+class QdrantUnavailableError(Exception):
+    """Qdrant 不可用异常（用于内部标记，不应抛出到外部）"""
+    pass
+
+
 class QdrantRetriever(RetrievalProvider):
     """
     Qdrant 向量检索提供者
@@ -38,6 +43,11 @@ class QdrantRetriever(RetrievalProvider):
     1. 向量语义检索
     2. Collection 管理
     3. 向量 upsert/delete
+    
+    P0 稳定性保证：
+    - Qdrant 不可用时不抛异常，返回空结果
+    - 所有异常都被捕获并记录
+    - 提供 is_available 属性检查可用性
     """
 
     def __init__(
@@ -52,23 +62,53 @@ class QdrantRetriever(RetrievalProvider):
 
         # 初始化 Qdrant 客户端
         self._client: Optional[QdrantSDK] = None
-        self._connected = False
+        self._available: bool = False  # 可用性状态
+        self._last_error: Optional[str] = None  # 最后一次错误
+        self._collection_dim: Optional[int] = None  # collection 向量维度
 
     @property
     def strategy(self) -> RetrievalStrategy:
         return RetrievalStrategy.QDRANT
 
-    async def _get_client(self) -> QdrantSDK:
-        """获取 Qdrant 客户端（懒加载）"""
+    @property
+    def is_available(self) -> bool:
+        """检查 Qdrant 是否可用"""
+        return self._available
+
+    @property
+    def last_error(self) -> Optional[str]:
+        """获取最后一次错误信息"""
+        return self._last_error
+
+    async def _get_client(self) -> Optional[QdrantSDK]:
+        """获取 Qdrant 客户端（懒加载，带健康检查）"""
         if self._client is None:
-            self._client = QdrantSDK(url=self.url, timeout=30)
-            self._connected = True
-            logger.info("qdrant_client_connected", url=self.url)
+            try:
+                self._client = QdrantSDK(url=self.url, timeout=10)
+                # 立即进行健康检查
+                self._client.get_collections()
+                self._available = True
+                self._last_error = None
+                logger.info("qdrant_client_connected", url=self.url)
+            except Exception as e:
+                self._available = False
+                self._last_error = str(e)
+                self._client = None
+                logger.warning(
+                    "qdrant_client_unavailable",
+                    url=self.url,
+                    error=str(e),
+                )
+                return None
         return self._client
 
     async def ensure_collection(self) -> bool:
         """确保 collection 存在"""
         client = await self._get_client()
+        if client is None:
+            logger.warning("qdrant_ensure_collection_skip", reason="client_unavailable")
+            return False
+        
         try:
             collections = client.get_collections()
             existing = [c.name for c in collections.collections]
@@ -82,9 +122,25 @@ class QdrantRetriever(RetrievalProvider):
                     ),
                 )
                 logger.info("qdrant_collection_created", collection=self.collection_name)
+            else:
+                # 获取 collection 信息，检查向量维度
+                info = client.get_collection(self.collection_name)
+                if hasattr(info.config.params, 'vectors'):
+                    # 新版 API
+                    self._collection_dim = info.config.params.vectors.size
+                elif hasattr(info.config.params, 'size'):
+                    # 旧版 API
+                    self._collection_dim = info.config.params.size
+                logger.info(
+                    "qdrant_collection_exists",
+                    collection=self.collection_name,
+                    dim=self._collection_dim,
+                )
             return True
         except Exception as e:
-            logger.error("qdrant_ensure_collection_error", error=str(e))
+            self._available = False
+            self._last_error = str(e)
+            logger.warning("qdrant_ensure_collection_error", error=str(e))
             return False
 
     async def search(
@@ -98,6 +154,10 @@ class QdrantRetriever(RetrievalProvider):
     ) -> List[RetrievalResult]:
         """
         向量语义检索
+        
+        P0 稳定性保证：
+        - Qdrant 不可用时返回空列表，不抛异常
+        - 所有异常都被捕获并记录
 
         Args:
             query: 查询文本
@@ -108,15 +168,30 @@ class QdrantRetriever(RetrievalProvider):
             domains: 知识领域过滤
 
         Returns:
-            检索结果列表
+            检索结果列表（Qdrant 不可用时返回空列表）
         """
         log = logger.bind(query=query[:50], tenant_id=tenant_id, site_id=site_id)
 
         try:
+            # 0. 检查客户端可用性
+            client = await self._get_client()
+            if client is None:
+                log.warning("qdrant_search_skip", reason="client_unavailable")
+                return []
+
             # 1. 获取查询向量
             query_vector = await self._get_embedding(query)
             if not query_vector:
                 log.warning("qdrant_search_no_embedding")
+                return []
+
+            # 1.5 检查向量维度一致性
+            if self._collection_dim and len(query_vector) != self._collection_dim:
+                log.warning(
+                    "qdrant_search_dim_mismatch",
+                    expected=self._collection_dim,
+                    actual=len(query_vector),
+                )
                 return []
 
             # 2. 构建过滤条件
@@ -140,7 +215,6 @@ class QdrantRetriever(RetrievalProvider):
                 )
 
             # 3. 执行检索
-            client = await self._get_client()
             results = client.search(
                 collection_name=self.collection_name,
                 query_vector=query_vector,

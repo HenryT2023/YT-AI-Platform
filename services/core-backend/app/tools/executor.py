@@ -218,48 +218,67 @@ class ToolExecutor:
         input: SearchContentInput,
         ctx: ToolContext,
     ) -> SearchContentOutput:
-        """搜索内容"""
-        like_pattern = f"%{input.query}%"
+        """
+        搜索内容
+        
+        P0 稳定性保证：
+        - 任何搜索失败都不抛 500
+        - 异常时返回空结果
+        """
+        log = logger.bind(query=input.query[:50], trace_id=ctx.trace_id)
+        
+        try:
+            like_pattern = f"%{input.query}%"
 
-        stmt = select(Content).where(
-            Content.tenant_id == ctx.tenant_id,
-            Content.site_id == ctx.site_id,
-            Content.deleted_at.is_(None),
-            (Content.title.ilike(like_pattern) | Content.body.ilike(like_pattern)),
-        )
-
-        if input.content_type:
-            stmt = stmt.where(Content.content_type == input.content_type)
-        if input.status:
-            stmt = stmt.where(Content.status == input.status)
-        if input.tags:
-            stmt = stmt.where(Content.tags.overlap(input.tags))
-
-        stmt = stmt.order_by(Content.credibility_score.desc()).limit(input.limit)
-
-        result = await self.session.execute(stmt)
-        contents = result.scalars().all()
-
-        items = [
-            ContentItem(
-                id=str(c.id),
-                content_type=c.content_type,
-                title=c.title,
-                summary=c.summary,
-                body=c.body[:500] if len(c.body) > 500 else c.body,
-                tags=c.tags or [],
-                domains=c.domains or [],
-                credibility_score=c.credibility_score,
-                verified=c.verified,
+            stmt = select(Content).where(
+                Content.tenant_id == ctx.tenant_id,
+                Content.site_id == ctx.site_id,
+                Content.deleted_at.is_(None),
+                (Content.title.ilike(like_pattern) | Content.body.ilike(like_pattern)),
             )
-            for c in contents
-        ]
 
-        return SearchContentOutput(
-            items=items,
-            total=len(items),
-            query=input.query,
-        )
+            if input.content_type:
+                stmt = stmt.where(Content.content_type == input.content_type)
+            if input.status:
+                stmt = stmt.where(Content.status == input.status)
+            if input.tags:
+                stmt = stmt.where(Content.tags.overlap(input.tags))
+
+            stmt = stmt.order_by(Content.credibility_score.desc()).limit(input.limit)
+
+            result = await self.session.execute(stmt)
+            contents = result.scalars().all()
+
+            items = [
+                ContentItem(
+                    id=str(c.id),
+                    content_type=c.content_type,
+                    title=c.title,
+                    summary=c.summary,
+                    body=c.body[:500] if c.body and len(c.body) > 500 else (c.body or ""),
+                    tags=c.tags or [],
+                    domains=c.domains or [],
+                    credibility_score=c.credibility_score,
+                    verified=c.verified,
+                )
+                for c in contents
+            ]
+
+            log.info("search_content_success", hit_count=len(items))
+
+            return SearchContentOutput(
+                items=items,
+                total=len(items),
+                query=input.query,
+            )
+        except Exception as e:
+            log.error("search_content_error", error=str(e))
+            # 返回空结果，不抛异常
+            return SearchContentOutput(
+                items=[],
+                total=0,
+                query=input.query,
+            )
 
     async def _handle_get_site_map(
         self,
@@ -488,6 +507,11 @@ class ToolExecutor:
     ) -> RetrieveEvidenceOutput:
         """
         检索证据
+        
+        P0 稳定性保证：
+        - 任何检索失败都不抛 500
+        - Qdrant 不可用时自动降级到 trgm
+        - 所有异常都被捕获并记录
 
         支持三种检索策略：
         1. trgm: pg_trgm 相似度搜索
@@ -496,24 +520,255 @@ class ToolExecutor:
         """
         from app.core.config import settings
 
-        log = logger.bind(query=input.query[:50], strategy=input.strategy)
-
-        # 确定检索策略
-        strategy = input.strategy
+        original_strategy = input.strategy
+        strategy = original_strategy
         if not strategy or strategy not in ("trgm", "qdrant", "hybrid"):
             strategy = settings.RETRIEVAL_STRATEGY
+        
+        log = logger.bind(
+            query=input.query[:50],
+            original_strategy=original_strategy,
+            strategy=strategy,
+            trace_id=ctx.trace_id,
+        )
+
+        fallback_reason = None
+        strategy_used = strategy
 
         # 向后兼容：use_trgm=False 时使用 LIKE
         if not input.use_trgm and strategy == "trgm":
-            return await self._retrieve_evidence_like(input, ctx, log)
+            try:
+                return await self._retrieve_evidence_like(input, ctx, log)
+            except Exception as e:
+                log.error("retrieve_evidence_like_error", error=str(e))
+                # LIKE 失败返回空结果，不抛异常
+                return self._empty_evidence_output(
+                    input.query, "like", "like_error", str(e)
+                )
 
+        if strategy == "trgm":
+            try:
+                return await self._retrieve_evidence_trgm(input, ctx, log)
+            except Exception as e:
+                log.error("retrieve_evidence_trgm_error", error=str(e))
+                return self._empty_evidence_output(
+                    input.query, "trgm", "trgm_error", str(e)
+                )
+
+        # qdrant 或 hybrid 策略：需要兜底
         if strategy == "qdrant":
-            return await self._retrieve_evidence_qdrant(input, ctx, log)
+            try:
+                result = await self._retrieve_evidence_qdrant_safe(input, ctx, log)
+                if result is not None:
+                    return result
+                # Qdrant 不可用，fallback 到 trgm
+                fallback_reason = "qdrant_unavailable"
+                strategy_used = "trgm_fallback"
+            except Exception as e:
+                log.warning("retrieve_evidence_qdrant_fallback", error=str(e))
+                fallback_reason = f"qdrant_error: {str(e)[:100]}"
+                strategy_used = "trgm_fallback"
+
         elif strategy == "hybrid":
-            return await self._retrieve_evidence_hybrid(input, ctx, log)
-        else:
-            # trgm
-            return await self._retrieve_evidence_trgm(input, ctx, log)
+            try:
+                result = await self._retrieve_evidence_hybrid_safe(input, ctx, log)
+                if result is not None:
+                    return result
+                # Hybrid 失败，fallback 到 trgm
+                fallback_reason = "hybrid_unavailable"
+                strategy_used = "trgm_fallback"
+            except Exception as e:
+                log.warning("retrieve_evidence_hybrid_fallback", error=str(e))
+                fallback_reason = f"hybrid_error: {str(e)[:100]}"
+                strategy_used = "trgm_fallback"
+
+        # Fallback 到 trgm
+        log.warning(
+            "retrieve_evidence_fallback_trgm",
+            original_strategy=strategy,
+            fallback_reason=fallback_reason,
+        )
+        try:
+            result = await self._retrieve_evidence_trgm(input, ctx, log)
+            # 标记为 fallback
+            result.strategy_used = strategy_used
+            result.fallback_reason = fallback_reason
+            return result
+        except Exception as e:
+            log.error("retrieve_evidence_trgm_fallback_error", error=str(e))
+            return self._empty_evidence_output(
+                input.query, strategy_used, fallback_reason, str(e)
+            )
+
+    def _empty_evidence_output(
+        self,
+        query: str,
+        strategy_used: str,
+        fallback_reason: str,
+        error: str,
+    ) -> RetrieveEvidenceOutput:
+        """返回空的证据输出（用于错误兜底）"""
+        return RetrieveEvidenceOutput(
+            items=[],
+            total=0,
+            query=query,
+            strategy_used=strategy_used,
+            search_method=strategy_used,
+            fallback_reason=fallback_reason,
+            score_distribution=None,
+        )
+
+    async def _retrieve_evidence_qdrant_safe(
+        self,
+        input: RetrieveEvidenceInput,
+        ctx: ToolContext,
+        log,
+    ) -> Optional[RetrieveEvidenceOutput]:
+        """
+        安全的 Qdrant 检索（不抛异常）
+        
+        返回 None 表示需要 fallback
+        """
+        from app.retrieval.qdrant_client import get_qdrant_client
+
+        try:
+            qdrant = get_qdrant_client()
+            
+            # 检查 Qdrant 可用性
+            if not qdrant.is_available:
+                log.warning("qdrant_not_available", error=qdrant.last_error)
+                return None
+
+            results = await qdrant.search(
+                query=input.query,
+                tenant_id=ctx.tenant_id,
+                site_id=ctx.site_id,
+                limit=input.limit,
+                min_score=input.min_score,
+                domains=input.domains,
+            )
+
+            # 如果 Qdrant 返回空结果但没有错误，仍然是有效结果
+            items = [
+                EvidenceItem(
+                    id=r.id,
+                    source_type=r.source_type,
+                    source_ref=r.source_ref,
+                    title=r.title,
+                    excerpt=r.excerpt[:300] if r.excerpt and len(r.excerpt) > 300 else r.excerpt,
+                    confidence=r.confidence,
+                    verified=r.verified,
+                    tags=r.tags,
+                    retrieval_score=r.score,
+                    qdrant_score=r.qdrant_score if hasattr(r, 'qdrant_score') else r.score,
+                )
+                for r in results
+            ]
+
+            scores = [r.score for r in results]
+            score_distribution = None
+            if scores:
+                score_distribution = {
+                    "min": min(scores),
+                    "max": max(scores),
+                    "avg": sum(scores) / len(scores),
+                    "count": len(scores),
+                }
+
+            log.info("retrieve_evidence_qdrant_success", hit_count=len(items))
+
+            return RetrieveEvidenceOutput(
+                items=items,
+                total=len(items),
+                query=input.query,
+                strategy_used="qdrant",
+                search_method="qdrant",
+                score_distribution=score_distribution,
+            )
+
+        except Exception as e:
+            log.warning("retrieve_evidence_qdrant_error", error=str(e))
+            return None
+
+    async def _retrieve_evidence_hybrid_safe(
+        self,
+        input: RetrieveEvidenceInput,
+        ctx: ToolContext,
+        log,
+    ) -> Optional[RetrieveEvidenceOutput]:
+        """
+        安全的 Hybrid 检索（不抛异常）
+        
+        返回 None 表示需要 fallback
+        """
+        from app.retrieval.hybrid import HybridRetriever
+        from app.retrieval.qdrant_client import get_qdrant_client
+
+        try:
+            qdrant = get_qdrant_client()
+            
+            # 检查 Qdrant 可用性（hybrid 需要 qdrant）
+            if not qdrant.is_available:
+                log.warning("hybrid_qdrant_not_available", error=qdrant.last_error)
+                return None
+
+            hybrid = HybridRetriever(
+                session=self.session,
+                qdrant_client=qdrant,
+            )
+
+            results = await hybrid.search(
+                query=input.query,
+                tenant_id=ctx.tenant_id,
+                site_id=ctx.site_id,
+                limit=input.limit,
+                min_score=input.min_score,
+                domains=input.domains,
+            )
+
+            items = [
+                EvidenceItem(
+                    id=r.id,
+                    source_type=r.source_type,
+                    source_ref=r.source_ref,
+                    title=r.title,
+                    excerpt=r.excerpt[:300] if r.excerpt and len(r.excerpt) > 300 else r.excerpt,
+                    confidence=r.confidence,
+                    verified=r.verified,
+                    tags=r.tags,
+                    retrieval_score=r.score,
+                    trgm_score=r.trgm_score if hasattr(r, 'trgm_score') else None,
+                    qdrant_score=r.qdrant_score if hasattr(r, 'qdrant_score') else None,
+                )
+                for r in results
+            ]
+
+            scores = [r.score for r in results]
+            score_distribution = None
+            if scores:
+                score_distribution = {
+                    "min": min(scores),
+                    "max": max(scores),
+                    "avg": sum(scores) / len(scores),
+                    "count": len(scores),
+                    "trgm_hits": sum(1 for r in results if hasattr(r, 'trgm_score') and r.trgm_score),
+                    "qdrant_hits": sum(1 for r in results if hasattr(r, 'qdrant_score') and r.qdrant_score),
+                }
+
+            log.info("retrieve_evidence_hybrid_success", hit_count=len(items))
+
+            return RetrieveEvidenceOutput(
+                items=items,
+                total=len(items),
+                query=input.query,
+                strategy_used="hybrid",
+                search_method="hybrid",
+                score_distribution=score_distribution,
+            )
+
+        except Exception as e:
+            log.warning("retrieve_evidence_hybrid_error", error=str(e))
+            return None
 
     async def _retrieve_evidence_trgm(
         self,
@@ -674,6 +929,7 @@ class ToolExecutor:
             items=items,
             total=len(items),
             query=input.query,
+            strategy_used="trgm",
             search_method="trgm",
             score_distribution=score_distribution,
         )
@@ -719,137 +975,17 @@ class ToolExecutor:
             for e in evidences
         ]
 
-        log.info("retrieve_evidence_trgm", hit_count=len(items))
+        log.info("retrieve_evidence_like", hit_count=len(items))
 
         return RetrieveEvidenceOutput(
             items=items,
             total=len(items),
             query=input.query,
-            strategy="trgm",
-            search_method="trgm",
-            score_distribution=score_distribution,
+            strategy_used="like",
+            search_method="like",
+            score_distribution=None,
         )
 
-    async def _retrieve_evidence_qdrant(
-        self,
-        input: RetrieveEvidenceInput,
-        ctx: ToolContext,
-        log,
-    ) -> RetrieveEvidenceOutput:
-        """使用 Qdrant 向量语义检索"""
-        from app.retrieval.qdrant_client import get_qdrant_client
-
-        qdrant = get_qdrant_client()
-        results = await qdrant.search(
-            query=input.query,
-            tenant_id=ctx.tenant_id,
-            site_id=ctx.site_id,
-            limit=input.limit,
-            min_score=input.min_score,
-            domains=input.domains,
-        )
-
-        items = [
-            EvidenceItem(
-                id=r.id,
-                source_type=r.source_type,
-                source_ref=r.source_ref,
-                title=r.title,
-                excerpt=r.excerpt[:300] if len(r.excerpt) > 300 else r.excerpt,
-                confidence=r.confidence,
-                verified=r.verified,
-                tags=r.tags,
-                retrieval_score=r.score,
-                qdrant_score=r.qdrant_score,
-            )
-            for r in results
-        ]
-
-        scores = [r.score for r in results]
-        score_distribution = None
-        if scores:
-            score_distribution = {
-                "min": min(scores),
-                "max": max(scores),
-                "avg": sum(scores) / len(scores),
-                "count": len(scores),
-            }
-
-        log.info("retrieve_evidence_qdrant", hit_count=len(items))
-
-        return RetrieveEvidenceOutput(
-            items=items,
-            total=len(items),
-            query=input.query,
-            strategy="qdrant",
-            search_method="qdrant",
-            score_distribution=score_distribution,
-        )
-
-    async def _retrieve_evidence_hybrid(
-        self,
-        input: RetrieveEvidenceInput,
-        ctx: ToolContext,
-        log,
-    ) -> RetrieveEvidenceOutput:
-        """使用混合检索（trgm + qdrant）"""
-        from app.retrieval.hybrid import HybridRetriever
-        from app.retrieval.qdrant_client import get_qdrant_client
-
-        hybrid = HybridRetriever(
-            session=self.session,
-            qdrant_client=get_qdrant_client(),
-        )
-
-        results = await hybrid.search(
-            query=input.query,
-            tenant_id=ctx.tenant_id,
-            site_id=ctx.site_id,
-            limit=input.limit,
-            min_score=input.min_score,
-            domains=input.domains,
-        )
-
-        items = [
-            EvidenceItem(
-                id=r.id,
-                source_type=r.source_type,
-                source_ref=r.source_ref,
-                title=r.title,
-                excerpt=r.excerpt[:300] if len(r.excerpt) > 300 else r.excerpt,
-                confidence=r.confidence,
-                verified=r.verified,
-                tags=r.tags,
-                retrieval_score=r.score,
-                trgm_score=r.trgm_score,
-                qdrant_score=r.qdrant_score,
-            )
-            for r in results
-        ]
-
-        scores = [r.score for r in results]
-        score_distribution = None
-        if scores:
-            score_distribution = {
-                "min": min(scores),
-                "max": max(scores),
-                "avg": sum(scores) / len(scores),
-                "count": len(scores),
-                "trgm_hits": sum(1 for r in results if r.trgm_score),
-                "qdrant_hits": sum(1 for r in results if r.qdrant_score),
-                "both_hits": sum(1 for r in results if r.trgm_score and r.qdrant_score),
-            }
-
-        log.info("retrieve_evidence_hybrid", hit_count=len(items), distribution=score_distribution)
-
-        return RetrieveEvidenceOutput(
-            items=items,
-            total=len(items),
-            query=input.query,
-            strategy="hybrid",
-            search_method="hybrid",
-            score_distribution=score_distribution,
-        )
 
     async def _handle_submit_feedback(
         self,

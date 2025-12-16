@@ -260,8 +260,10 @@ class RetrieveEvidenceOutput(BaseModel):
     items: List[EvidenceItem]
     total: int
     query: str
-    strategy: str = Field("hybrid", description="检索策略: trgm/qdrant/hybrid")
-    search_method: str = Field("trgm", description="[已废弃] 使用 strategy")
+    strategy: str = Field("hybrid", description="[已废弃] 使用 strategy_used")
+    strategy_used: str = Field("trgm", description="实际使用的检索策略")
+    search_method: str = Field("trgm", description="[已废弃] 使用 strategy_used")
+    fallback_reason: Optional[str] = Field(None, description="降级原因（如果发生了降级）")
     score_distribution: Optional[Dict[str, Any]] = Field(None, description="分数分布统计")
 
 
