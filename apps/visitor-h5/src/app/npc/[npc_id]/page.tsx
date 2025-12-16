@@ -4,10 +4,20 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Send, Loader2, RotateCcw, ChevronDown, ChevronUp, BookOpen, Hash, Flag } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { getOrCreateSessionId, clearSessionId } from '@/lib/session'
-import { npcChat, isNPCChatError, getPolicyModeLabel, getPolicyModeColor, type PolicyMode, type CitationItem } from '@/lib/api'
+import { npcChat, isNPCChatError, getPolicyModeLabel, getPolicyModeColor, fetchPublicNPCs, type PolicyMode, type CitationItem, type PublicNPC } from '@/lib/api'
 import FeedbackModal from '@/components/FeedbackModal'
 
-const NPC_DATA: Record<string, {
+// NPC 数据缓存
+let npcDataCache: Record<string, {
+  name: string
+  title: string
+  avatar: string
+  color: string
+  greeting: string
+}> | null = null
+
+// 默认 NPC 数据（fallback）
+const DEFAULT_NPC_DATA: Record<string, {
   name: string
   title: string
   avatar: string
@@ -35,6 +45,32 @@ const NPC_DATA: Record<string, {
     color: 'from-emerald-500 to-teal-600',
     greeting: '欢迎来到我的工坊。这些竹编和木雕都是祖辈传下来的手艺，你想了解哪一样？',
   },
+}
+
+// 从 API 加载 NPC 数据
+async function loadNPCData(): Promise<Record<string, { name: string; title: string; avatar: string; color: string; greeting: string }>> {
+  if (npcDataCache) return npcDataCache
+  
+  try {
+    const npcs = await fetchPublicNPCs()
+    if (npcs.length > 0) {
+      npcDataCache = {}
+      for (const npc of npcs) {
+        npcDataCache[npc.npc_id] = {
+          name: npc.name,
+          title: npc.role || '村民',
+          avatar: npc.avatar_emoji || '👤',
+          color: npc.color || 'from-slate-500 to-slate-600',
+          greeting: npc.greeting || `你好，我是${npc.name}。`,
+        }
+      }
+      return npcDataCache
+    }
+  } catch (err) {
+    console.error('Failed to load NPC data:', err)
+  }
+  
+  return DEFAULT_NPC_DATA
 }
 
 interface Message {
@@ -220,16 +256,12 @@ export default function NPCChatPage() {
   const router = useRouter()
   const npcId = params.npc_id as string
   
-  const npc = NPC_DATA[npcId]
+  // NPC 数据状态
+  const [npc, setNpc] = useState<{ name: string; title: string; avatar: string; color: string; greeting: string } | null>(null)
+  const [npcLoading, setNpcLoading] = useState(true)
   
   const [sessionId, setSessionId] = useState<string>('')
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: npc?.greeting || '你好，有什么可以帮助你的？',
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -245,6 +277,30 @@ export default function NPCChatPage() {
   // 已提交纠错的 trace_id 集合（防重复提交）
   const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Set<string>>(new Set())
   
+  // 加载 NPC 数据
+  useEffect(() => {
+    async function loadNPC() {
+      setNpcLoading(true)
+      const npcData = await loadNPCData()
+      const currentNpc = npcData[npcId] || DEFAULT_NPC_DATA[npcId]
+      setNpc(currentNpc || null)
+      
+      // 设置初始问候消息
+      if (currentNpc) {
+        setMessages([{
+          id: '1',
+          role: 'assistant',
+          content: currentNpc.greeting || '你好，有什么可以帮助你的？',
+        }])
+      }
+      setNpcLoading(false)
+    }
+    
+    if (npcId) {
+      loadNPC()
+    }
+  }, [npcId])
+  
   // 初始化 session
   useEffect(() => {
     if (npcId) {
@@ -259,6 +315,15 @@ export default function NPCChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
   
+  // 加载中
+  if (npcLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
   if (!npc) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">

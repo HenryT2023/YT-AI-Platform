@@ -216,3 +216,106 @@ export async function submitFeedback(
 export function isFeedbackError(result: FeedbackResult): result is FeedbackError {
   return 'error' in result && result.error === true
 }
+
+// ============================================================
+// Public API (场景数据)
+// ============================================================
+
+export interface PublicNPC {
+  npc_id: string
+  name: string
+  display_name?: string
+  role?: string
+  intro?: string
+  avatar_url?: string
+  avatar_emoji?: string
+  color?: string
+  greeting?: string
+}
+
+export interface PublicPOI {
+  poi_id: string
+  name: string
+  description?: string
+  category?: string
+  tags: string[]
+  extra: Record<string, unknown>
+}
+
+export interface PublicQuestStep {
+  step_number: number
+  name: string
+  description?: string
+  step_type: string
+}
+
+export interface PublicQuest {
+  quest_id: string
+  name: string
+  display_name?: string
+  description?: string
+  quest_type?: string
+  category?: string
+  difficulty?: string
+  estimated_duration_minutes?: number
+  tags: string[]
+  rewards: Record<string, unknown>
+  steps: PublicQuestStep[]
+}
+
+/**
+ * 获取 NPC 列表（公开 API）
+ */
+export async function fetchPublicNPCs(): Promise<PublicNPC[]> {
+  const url = `${CORE_BASE}/api/v1/public/npcs?tenant_id=${TENANT_ID}&site_id=${SITE_ID}`
+  
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error('fetchPublicNPCs failed:', response.status)
+      return []
+    }
+    return await response.json()
+  } catch (err) {
+    console.error('fetchPublicNPCs error:', err)
+    return []
+  }
+}
+
+/**
+ * 获取 POI 列表（公开 API）
+ */
+export async function fetchPublicPOIs(): Promise<PublicPOI[]> {
+  const url = `${CORE_BASE}/api/v1/public/pois?tenant_id=${TENANT_ID}&site_id=${SITE_ID}`
+  
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error('fetchPublicPOIs failed:', response.status)
+      return []
+    }
+    return await response.json()
+  } catch (err) {
+    console.error('fetchPublicPOIs error:', err)
+    return []
+  }
+}
+
+/**
+ * 获取 Quest 列表（公开 API）
+ */
+export async function fetchPublicQuests(): Promise<PublicQuest[]> {
+  const url = `${CORE_BASE}/api/v1/public/quests?tenant_id=${TENANT_ID}&site_id=${SITE_ID}`
+  
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error('fetchPublicQuests failed:', response.status)
+      return []
+    }
+    return await response.json()
+  } catch (err) {
+    console.error('fetchPublicQuests error:', err)
+    return []
+  }
+}
