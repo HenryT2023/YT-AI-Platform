@@ -27,6 +27,13 @@ from app.database.models.visitor_profile import (
     VisitorCheckIn,
     VisitorInteraction,
 )
+from app.database.models.achievement import (
+    Achievement,
+    UserAchievement,
+    AchievementCategory,
+    AchievementTier,
+    RuleType,
+)
 
 __all__ = [
     # Core
@@ -75,4 +82,10 @@ __all__ = [
     "VisitorTag",
     "VisitorCheckIn",
     "VisitorInteraction",
+    # Achievement
+    "Achievement",
+    "UserAchievement",
+    "AchievementCategory",
+    "AchievementTier",
+    "RuleType",
 ]
