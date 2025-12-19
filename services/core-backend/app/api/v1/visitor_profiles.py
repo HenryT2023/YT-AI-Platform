@@ -33,8 +33,9 @@ from app.database.models import (
     VisitorTag,
     VisitorCheckIn,
     VisitorInteraction,
-    User,
 )
+from app.services.achievement_service import check_achievements_for_user
+from app.database.models import User
 from app.db.session import get_db
 
 router = APIRouter(prefix="/visitor-profiles", tags=["visitor-profiles"])
@@ -406,6 +407,22 @@ async def create_check_in(
     
     await db.commit()
     await db.refresh(db_check_in)
+    
+    # v0.2.0: 触发成就检查
+    if profile.user_id:
+        try:
+            unlocked = await check_achievements_for_user(
+                db=db,
+                tenant_id=scope.tenant_id,
+                site_id=scope.site_id,
+                user_id=profile.user_id,
+                event_name="check_in",
+                event_data={"scene_id": str(check_in.scene_id)},
+            )
+            if unlocked:
+                await db.commit()
+        except Exception:
+            pass  # 成就检查失败不影响主流程
     
     return db_check_in
 

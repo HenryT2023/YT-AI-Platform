@@ -10,6 +10,7 @@ v0.2.2: 新增审核 API (approve/reject)
 import structlog
 from datetime import datetime
 from typing import Annotated, List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Path, HTTPException, Body
 from pydantic import BaseModel, Field
@@ -20,6 +21,8 @@ from app.core.rbac import ViewerOrAbove, OperatorOrAbove
 from app.core.tenant_scope import RequiredScope
 from app.db import get_db
 from app.database.models.quest_submission import QuestSubmission
+from app.database.models import VisitorProfile
+from app.services.achievement_service import check_achievements_for_user
 
 logger = structlog.get_logger(__name__)
 
@@ -283,6 +286,44 @@ async def approve_submission(
     await db.refresh(submission)
     
     log.info("submission_approved", quest_id=submission.quest_id)
+    
+    # v0.2.0: 更新游客画像并触发成就检查
+    try:
+        # 从 session_id 获取 user_id（session_id 格式通常包含 user_id）
+        # 或者从 proof_payload 中获取
+        user_id_str = submission.proof_payload.get("user_id") if submission.proof_payload else None
+        
+        if user_id_str:
+            user_id = UUID(user_id_str)
+            
+            # 更新游客画像的任务完成计数
+            profile_result = await db.execute(
+                select(VisitorProfile).where(
+                    VisitorProfile.user_id == user_id,
+                    VisitorProfile.tenant_id == scope.tenant_id,
+                    VisitorProfile.site_id == scope.site_id,
+                )
+            )
+            profile = profile_result.scalar_one_or_none()
+            if profile:
+                profile.quest_completed_count += 1
+                await db.commit()
+                log.info("visitor_profile_updated", user_id=str(user_id), quest_completed_count=profile.quest_completed_count)
+            
+            # 触发成就检查
+            unlocked = await check_achievements_for_user(
+                db=db,
+                tenant_id=scope.tenant_id,
+                site_id=scope.site_id,
+                user_id=user_id,
+                event_name="quest_completed",
+                event_data={"quest_id": submission.quest_id},
+            )
+            if unlocked:
+                log.info("achievements_unlocked", user_id=str(user_id), count=len(unlocked), achievements=[a.code for a in unlocked])
+                await db.commit()
+    except Exception as e:
+        log.warning("failed_to_update_profile_or_achievements", error=str(e))
     
     return ReviewResponse(
         id=str(submission.id),
