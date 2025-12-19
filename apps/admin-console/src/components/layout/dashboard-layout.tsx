@@ -26,6 +26,7 @@ const navigation = [
   { name: '游客画像', href: '/admin/visitor-profiles', icon: Users },
   { name: '成就管理', href: '/admin/achievements', icon: Trophy },
   { name: '节气农耕', href: '/admin/solar-terms', icon: MapPin },
+  { name: '农耕知识', href: '/admin/farming-knowledge', icon: MapPin },
   { name: 'IoT 设备', href: '/admin/iot-devices', icon: Settings },
   { name: '系统设置', href: '/admin/settings', icon: Settings },
 ];
