@@ -67,16 +67,16 @@ export default function ReleasesPage() {
   const [pendingAction, setPendingAction] = useState<{ type: 'activate' | 'rollback'; id: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const tenantId = 'yantian';
-  const siteId = 'yantian-main';
+  // v0.2.4: tenant/site 由代理层从 Header 注入
 
   const fetchReleases = async () => {
     setLoading(true);
     try {
-      let url = `/api/admin/releases?tenant_id=${tenantId}&site_id=${siteId}`;
+      const params = new URLSearchParams();
       if (statusFilter !== 'all') {
-        url += `&status=${statusFilter}`;
+        params.set('status', statusFilter);
       }
+      const url = `/api/admin/releases${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       setReleases(Array.isArray(data) ? data : []);
@@ -89,7 +89,7 @@ export default function ReleasesPage() {
 
   const fetchActiveRelease = async () => {
     try {
-      const res = await fetch(`/api/admin/releases/active?tenant_id=${tenantId}&site_id=${siteId}`);
+      const res = await fetch(`/api/admin/releases/active`);
       const data = await res.json();
       // 只有当返回有效数据时才设置
       if (data && data.id) {

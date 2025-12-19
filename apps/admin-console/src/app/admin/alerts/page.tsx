@@ -97,17 +97,18 @@ export default function AlertsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [evaluateResult, setEvaluateResult] = useState<any>(null);
 
-  const tenantId = 'yantian';
+  // v0.2.4: tenant/site 由代理层从 Header 注入
 
   const fetchEvents = async () => {
     try {
-      let url = `/api/admin/alerts/events?tenant_id=${tenantId}`;
+      const params = new URLSearchParams();
       if (statusFilter !== 'all') {
-        url += `&status=${statusFilter}`;
+        params.set('status', statusFilter);
       }
       if (severityFilter !== 'all') {
-        url += `&severity=${severityFilter}`;
+        params.set('severity', severityFilter);
       }
+      const url = `/api/admin/alerts/events${params.toString() ? '?' + params.toString() : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       setEvents(data.items || []);
@@ -118,7 +119,7 @@ export default function AlertsPage() {
 
   const fetchSilences = async () => {
     try {
-      const res = await fetch(`/api/admin/alerts/silences?tenant_id=${tenantId}&active_only=true`);
+      const res = await fetch(`/api/admin/alerts/silences?active_only=true`);
       const data = await res.json();
       setSilences(data.items || []);
     } catch (error) {
@@ -156,7 +157,7 @@ export default function AlertsPage() {
     setActionLoading(true);
     setEvaluateResult(null);
     try {
-      const res = await fetch(`/api/admin/alerts/evaluate?tenant_id=${tenantId}`, {
+      const res = await fetch(`/api/admin/alerts/evaluate`, {
         method: 'POST',
       });
       const data = await res.json();
@@ -176,7 +177,6 @@ export default function AlertsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenant_id: tenantId,
           alert_code: silenceForm.alert_code || undefined,
           duration_minutes: silenceForm.duration_minutes,
           reason: silenceForm.reason || undefined,
