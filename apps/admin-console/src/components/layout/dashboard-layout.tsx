@@ -14,6 +14,7 @@ import {
   X,
   LogOut,
 } from 'lucide-react';
+import { SiteSwitcher } from './site-switcher';
 import clsx from 'clsx';
 
 const navigation = [
@@ -82,10 +83,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-1 flex-col border-r bg-white">
-          <div className="flex h-16 items-center px-6">
+          <div className="flex h-16 items-center justify-between px-6">
             <span className="text-xl font-bold text-primary-700">
               严田 AI 引擎
             </span>
+          </div>
+          <div className="px-4 pb-2">
+            <SiteSwitcher />
           </div>
           <nav className="flex-1 px-4 py-4">
             {navigation.map((item) => (
