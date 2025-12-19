@@ -319,3 +319,118 @@ export async function fetchPublicQuests(): Promise<PublicQuest[]> {
     return []
   }
 }
+
+// ============================================================
+// Quest Submission API (v0.2-1)
+// ============================================================
+
+export interface QuestSubmitRequest {
+  session_id: string
+  proof_type?: string
+  proof_payload: {
+    answer?: string
+    attachments?: string[]
+  }
+}
+
+export interface QuestSubmitResponse {
+  submission_id: string
+  status: string
+  created_at: string
+}
+
+export interface QuestSubmitError {
+  error: true
+  message: string
+  status?: number
+}
+
+export type QuestSubmitResult = QuestSubmitResponse | QuestSubmitError
+
+export interface QuestSubmissionItem {
+  submission_id: string
+  quest_id: string
+  proof_type: string
+  proof_payload: Record<string, unknown>
+  status: string
+  // v0.2.2 审核字段
+  review_status: 'pending' | 'approved' | 'rejected'
+  review_comment?: string | null
+  created_at: string
+}
+
+export interface QuestProgressResponse {
+  completed_quest_ids: string[]
+  submissions: QuestSubmissionItem[]
+}
+
+/**
+ * 提交任务 proof
+ */
+export async function submitQuest(
+  questId: string,
+  request: QuestSubmitRequest,
+): Promise<QuestSubmitResult> {
+  const url = `${CORE_BASE}/api/v1/public/quests/${questId}/submit`
+  
+  const body = {
+    tenant_id: TENANT_ID,
+    site_id: SITE_ID,
+    session_id: request.session_id,
+    proof_type: request.proof_type || 'text',
+    proof_payload: request.proof_payload,
+  }
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        error: true,
+        message: errorData.detail || `提交失败: ${response.status}`,
+        status: response.status,
+      }
+    }
+    
+    return await response.json()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '网络请求失败'
+    return {
+      error: true,
+      message: message.includes('fetch') ? '无法连接到服务器' : message,
+    }
+  }
+}
+
+/**
+ * 判断提交结果是否为错误
+ */
+export function isQuestSubmitError(result: QuestSubmitResult): result is QuestSubmitError {
+  return 'error' in result && result.error === true
+}
+
+/**
+ * 获取任务进度
+ */
+export async function fetchQuestProgress(sessionId: string): Promise<QuestProgressResponse> {
+  const url = `${CORE_BASE}/api/v1/public/quests/progress?tenant_id=${TENANT_ID}&site_id=${SITE_ID}&session_id=${encodeURIComponent(sessionId)}`
+  
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error('fetchQuestProgress failed:', response.status)
+      return { completed_quest_ids: [], submissions: [] }
+    }
+    return await response.json()
+  } catch (err) {
+    console.error('fetchQuestProgress error:', err)
+    return { completed_quest_ids: [], submissions: [] }
+  }
+}

@@ -90,3 +90,40 @@ export function getOrCreateSessionId(npcId: string): string {
   
   return sessionId
 }
+
+// ============================================================
+// 全局 Session（用于任务进度等跨 NPC 场景）
+// ============================================================
+
+const GLOBAL_SESSION_KEY = `${SESSION_STORAGE_PREFIX}:${TENANT_ID}:${SITE_ID}:_global`
+
+/**
+ * 获取全局 session_id
+ */
+export function getGlobalSessionId(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(GLOBAL_SESSION_KEY)
+}
+
+/**
+ * 保存全局 session_id
+ */
+export function setGlobalSessionId(sessionId: string): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(GLOBAL_SESSION_KEY, sessionId)
+}
+
+/**
+ * 获取或创建全局 session_id
+ * 用于任务进度追踪等跨 NPC 场景
+ */
+export function getOrCreateGlobalSessionId(): string {
+  let sessionId = getGlobalSessionId()
+  
+  if (!sessionId) {
+    sessionId = generateSessionId()
+    setGlobalSessionId(sessionId)
+  }
+  
+  return sessionId
+}

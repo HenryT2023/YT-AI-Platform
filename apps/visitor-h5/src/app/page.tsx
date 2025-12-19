@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageCircle, Sparkles, Activity, Loader2 } from 'lucide-react'
+import { MessageCircle, Sparkles, Activity, Loader2, Target } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { fetchPublicNPCs, type PublicNPC } from '@/lib/api'
 
@@ -139,13 +139,22 @@ export default function HomePage() {
               选择一位村民，开始你的故事
             </p>
           </div>
-          <Link
-            href="/health"
-            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title="系统状态"
-          >
-            <Activity className="w-5 h-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/quests"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg transition-all active:scale-[0.98]"
+            >
+              <Target className="w-4 h-4" />
+              任务
+            </Link>
+            <Link
+              href="/health"
+              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="系统状态"
+            >
+              <Activity className="w-5 h-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+            </Link>
+          </div>
         </div>
       </header>
       
