@@ -21,6 +21,12 @@ from app.database.models.vector_sync_job import VectorSyncJob, VectorSyncStatus
 from app.database.models.embedding_usage import EmbeddingUsage, EmbeddingStatus, EmbeddingObjectType
 from app.database.models.alerts import AlertEvent, AlertSilence, AlertStatus
 from app.database.models.refresh_token import RefreshToken
+from app.database.models.visitor_profile import (
+    VisitorProfile,
+    VisitorTag,
+    VisitorCheckIn,
+    VisitorInteraction,
+)
 
 __all__ = [
     # Core
@@ -64,4 +70,9 @@ __all__ = [
     "AlertStatus",
     # Auth
     "RefreshToken",
+    # Visitor Profile
+    "VisitorProfile",
+    "VisitorTag",
+    "VisitorCheckIn",
+    "VisitorInteraction",
 ]

@@ -88,6 +88,9 @@ class User(Base, AuditMixin):
 
     # 关系
     tenant: Mapped[Optional["Tenant"]] = relationship("Tenant", back_populates="users")
+    visitor_profile: Mapped[Optional["VisitorProfile"]] = relationship(
+        "VisitorProfile", back_populates="user", uselist=False
+    )
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username={self.username}, role={self.role})>"
