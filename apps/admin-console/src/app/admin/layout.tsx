@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Package,
   Bell,
+  ClipboardList,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -23,6 +24,12 @@ const NAV_ITEMS = [
     label: '告警管理',
     icon: Bell,
     description: '监控告警事件与静默规则',
+  },
+  {
+    href: '/admin/quests/submissions',
+    label: '任务提交看板',
+    icon: ClipboardList,
+    description: '查看游客任务提交情况',
   },
   {
     href: '/admin/feedback',
