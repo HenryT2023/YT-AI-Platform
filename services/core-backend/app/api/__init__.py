@@ -7,6 +7,9 @@ API 路由模块
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    achievements,
+    solar_terms,
+    iot_devices,
     auth,
     chat,
     sites,
@@ -18,7 +21,6 @@ from app.api.v1 import (
     quest_submissions,
     visitors,
     visitor_profiles,
-    achievements,
     tenants,
     users,
     knowledge,
@@ -63,6 +65,12 @@ router.include_router(quest_submissions.router, prefix="/v1/admin/quest-submissi
 router.include_router(visitors.router, prefix="/v1/visitors", tags=["游客"])
 router.include_router(visitor_profiles.router, prefix="/v1", tags=["游客画像"])
 router.include_router(achievements.router, prefix="/v1", tags=["成就体系"])
+
+# 节气与农耕知识
+router.include_router(solar_terms.router, prefix="/v1", tags=["节气农耕"])
+
+# IoT 设备管理
+router.include_router(iot_devices.router, prefix="/v1", tags=["IoT设备"])
 
 # 内容与知识库
 router.include_router(contents.router, prefix="/v1/contents", tags=["内容"])

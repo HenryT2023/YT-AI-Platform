@@ -34,6 +34,17 @@ from app.database.models.achievement import (
     AchievementTier,
     RuleType,
 )
+from app.database.models.solar_term import (
+    SolarTerm,
+    FarmingKnowledge,
+)
+from app.database.models.iot_device import (
+    IoTDevice,
+    IoTDeviceLog,
+    DeviceType,
+    DeviceStatus,
+    EventType,
+)
 
 __all__ = [
     # Core
@@ -88,4 +99,13 @@ __all__ = [
     "AchievementCategory",
     "AchievementTier",
     "RuleType",
+    # Solar Term & Farming
+    "SolarTerm",
+    "FarmingKnowledge",
+    # IoT Device
+    "IoTDevice",
+    "IoTDeviceLog",
+    "DeviceType",
+    "DeviceStatus",
+    "EventType",
 ]
