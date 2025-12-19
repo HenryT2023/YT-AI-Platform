@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.rbac import AdminOnly, ViewerOrAbove
-from app.core.scope import RequireTenantScope, ScopeContext, verify_tenant_site_access
+from app.core.scope import RequireSiteScope, ScopeContext, verify_tenant_site_access
 from app.core.audit import log_audit, AuditAction, TargetType
 from app.core.release_service import ReleaseService, ReleasePayload
 from app.core.release_validator import validate_release, ValidationResult
@@ -92,7 +92,7 @@ async def create_release(
     request: ReleaseCreateRequest,
     db: AsyncSession = Depends(get_db),
     current_user: AdminOnly = None,
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """创建 draft release（仅管理员）"""
     # Scope 校验
@@ -150,15 +150,15 @@ async def create_release(
 
 @router.get("/active", response_model=Optional[ReleaseResponse])
 async def get_active_release(
-    tenant_id: str = Query(...),
-    site_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
-    """获取当前 active release"""
-    verify_tenant_site_access(scope, tenant_id, site_id)
+    """获取当前 active release
+    
+    v0.2.4: 从 Header 读取 tenant/site scope
+    """
     service = ReleaseService(db)
-    release = await service.get_active(tenant_id, site_id)
+    release = await service.get_active(scope.tenant_id, scope.site_id)
     
     if not release:
         return None
@@ -180,16 +180,16 @@ async def get_active_release(
 
 @router.get("", response_model=List[ReleaseResponse])
 async def list_releases(
-    tenant_id: str = Query(...),
-    site_id: str = Query(...),
     status_filter: Optional[str] = Query(None, alias="status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
-    """列出 releases"""
-    verify_tenant_site_access(scope, tenant_id, site_id)
+    """列出 releases
+    
+    v0.2.4: 从 Header 读取 tenant/site scope
+    """
     service = ReleaseService(db)
     
     release_status = None
@@ -203,8 +203,8 @@ async def list_releases(
             )
     
     releases = await service.list(
-        tenant_id=tenant_id,
-        site_id=site_id,
+        tenant_id=scope.tenant_id,
+        site_id=scope.site_id,
         status=release_status,
         skip=skip,
         limit=limit,
@@ -232,7 +232,7 @@ async def list_releases(
 async def get_release(
     release_id: str,
     db: AsyncSession = Depends(get_db),
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """获取 release 详情"""
     service = ReleaseService(db)
@@ -267,7 +267,7 @@ async def activate_release(
     release_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: AdminOnly = None,
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """
     激活 release（仅管理员）
@@ -366,7 +366,7 @@ async def rollback_release(
     release_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: AdminOnly = None,
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """
     回滚到指定 release（仅管理员）
@@ -458,7 +458,7 @@ async def rollback_release(
 async def validate_release_endpoint(
     release_id: str,
     db: AsyncSession = Depends(get_db),
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """
     预检 release 完整性
@@ -501,7 +501,7 @@ async def validate_release_endpoint(
 async def get_release_history(
     release_id: str,
     db: AsyncSession = Depends(get_db),
-    scope: RequireTenantScope = None,
+    scope: RequireSiteScope = None,
 ):
     """获取 release 相关的历史记录"""
     service = ReleaseService(db)

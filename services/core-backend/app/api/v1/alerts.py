@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.rbac import OperatorOrAbove, ViewerOrAbove
+from app.core.tenant_scope import RequiredScope
 from app.core.alerts_evaluator import (
     AlertsEvaluator,
     EvaluationResult,
@@ -184,8 +185,7 @@ class EvaluateAndPersistResponse(BaseModel):
 
 @router.get("/evaluate", response_model=EvaluationResponse)
 async def evaluate_alerts(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     range: str = Query("15m", description="评估窗口，如 15m, 1h, 24h"),
     send_webhook: bool = Query(False, description="是否发送 webhook 通知"),
     db: AsyncSession = Depends(get_db),
@@ -206,6 +206,8 @@ async def evaluate_alerts(
     - medium: 中，需关注
     - low: 低，可延后处理
     """
+    tenant_id = scope.tenant_id
+    site_id = scope.site_id
     log = logger.bind(tenant_id=tenant_id, site_id=site_id, range=range)
     log.info("alerts_evaluation_requested")
     
@@ -335,8 +337,7 @@ async def list_alert_rules(
 
 @router.get("/summary")
 async def get_alerts_summary(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -344,6 +345,8 @@ async def get_alerts_summary(
     
     快速检查当前是否有活跃告警，用于仪表盘展示
     """
+    tenant_id = scope.tenant_id
+    site_id = scope.site_id
     evaluator = AlertsEvaluator(db)
     result = await evaluator.evaluate(
         tenant_id=tenant_id,
@@ -369,8 +372,7 @@ async def get_alerts_summary(
 
 @router.post("/evaluate-persist", response_model=EvaluateAndPersistResponse)
 async def evaluate_and_persist_alerts(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     range: str = Query("15m", description="评估窗口"),
     send_webhook: bool = Query(True, description="是否发送 webhook 通知"),
     db: AsyncSession = Depends(get_db),
@@ -387,6 +389,8 @@ async def evaluate_and_persist_alerts(
     
     适用于定时任务调用
     """
+    tenant_id = scope.tenant_id
+    site_id = scope.site_id
     log = logger.bind(tenant_id=tenant_id, site_id=site_id, range=range)
     log.info("alerts_evaluate_persist_requested")
     
@@ -421,8 +425,7 @@ async def evaluate_and_persist_alerts(
 
 @router.get("/events", response_model=AlertEventsListResponse)
 async def list_events(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     status: Optional[str] = Query(None, description="状态过滤: firing, resolved"),
     since: Optional[str] = Query(None, description="起始时间，如 2024-01-01T00:00:00"),
     limit: int = Query(100, ge=1, le=500, description="返回数量限制"),
@@ -445,8 +448,8 @@ async def list_events(
     
     events = await list_alert_events(
         db=db,
-        tenant_id=tenant_id,
-        site_id=site_id,
+        tenant_id=scope.tenant_id,
+        site_id=scope.site_id,
         status=status,
         since=since_dt,
         limit=limit,
@@ -582,16 +585,18 @@ async def create_silence_rule(
 
 @router.get("/silences", response_model=SilencesListResponse)
 async def list_silence_rules(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     active_only: bool = Query(True, description="仅返回生效中的静默"),
     db: AsyncSession = Depends(get_db),
 ) -> SilencesListResponse:
-    """获取静默规则列表"""
+    """获取静默规则列表
+    
+    v0.2.4: 从 Header 读取 tenant/site scope
+    """
     silences = await list_silences(
         db=db,
-        tenant_id=tenant_id,
-        site_id=site_id,
+        tenant_id=scope.tenant_id,
+        site_id=scope.site_id,
         active_only=active_only,
     )
     

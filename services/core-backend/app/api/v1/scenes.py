@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
+from app.core.tenant_scope import RequiredScope
 from app.db import get_db
 from app.domain.scene import Scene
 
@@ -75,15 +76,19 @@ class SceneResponse(BaseModel):
 async def list_scenes(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
-    site_id: Optional[str] = Query(None, description="按站点筛选"),
+    scope: RequiredScope,
     scene_type: Optional[str] = Query(None, description="按类型筛选"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> List[Scene]:
-    """获取场景列表"""
-    query = select(Scene).where(Scene.deleted_at.is_(None))
-    if site_id:
-        query = query.where(Scene.site_id == site_id)
+    """获取场景列表
+    
+    v0.2.4: 从 Header 读取 tenant/site scope，强制过滤
+    """
+    query = select(Scene).where(
+        Scene.deleted_at.is_(None),
+        Scene.site_id == scope.site_id,
+    )
     if scene_type:
         query = query.where(Scene.scene_type == scene_type)
     query = query.order_by(Scene.sort_order).offset(skip).limit(limit)
@@ -97,10 +102,18 @@ async def get_scene(
     scene_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Scene:
-    """获取单个场景"""
+    """获取单个场景
+    
+    v0.2.4: 验证场景属于当前 scope
+    """
     result = await db.execute(
-        select(Scene).where(Scene.id == scene_id, Scene.deleted_at.is_(None))
+        select(Scene).where(
+            Scene.id == scene_id,
+            Scene.deleted_at.is_(None),
+            Scene.site_id == scope.site_id,
+        )
     )
     scene = result.scalar_one_or_none()
     if not scene:
@@ -113,10 +126,14 @@ async def create_scene(
     data: SceneCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Scene:
-    """创建场景"""
+    """创建场景
+    
+    v0.2.4: site_id 从 scope 获取
+    """
     scene = Scene(
-        site_id=data.site_id,
+        site_id=scope.site_id,
         name=data.name,
         display_name=data.display_name,
         description=data.description,
@@ -141,10 +158,18 @@ async def update_scene(
     data: SceneUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Scene:
-    """更新场景"""
+    """更新场景
+    
+    v0.2.4: 验证场景属于当前 scope
+    """
     result = await db.execute(
-        select(Scene).where(Scene.id == scene_id, Scene.deleted_at.is_(None))
+        select(Scene).where(
+            Scene.id == scene_id,
+            Scene.deleted_at.is_(None),
+            Scene.site_id == scope.site_id,
+        )
     )
     scene = result.scalar_one_or_none()
     if not scene:
@@ -164,12 +189,20 @@ async def delete_scene(
     scene_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> None:
-    """删除场景（软删除）"""
+    """删除场景（软删除）
+    
+    v0.2.4: 验证场景属于当前 scope
+    """
     from datetime import datetime, timezone
 
     result = await db.execute(
-        select(Scene).where(Scene.id == scene_id, Scene.deleted_at.is_(None))
+        select(Scene).where(
+            Scene.id == scene_id,
+            Scene.deleted_at.is_(None),
+            Scene.site_id == scope.site_id,
+        )
     )
     scene = result.scalar_one_or_none()
     if not scene:

@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
+from app.core.tenant_scope import RequiredScope
 from app.db import get_db
 from app.domain.npc import NPC
 
@@ -70,15 +71,19 @@ class NPCResponse(BaseModel):
 async def list_npcs(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
-    site_id: Optional[str] = Query(None),
+    scope: RequiredScope,
     npc_type: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> List[NPC]:
-    """获取 NPC 列表"""
-    query = select(NPC).where(NPC.deleted_at.is_(None))
-    if site_id:
-        query = query.where(NPC.site_id == site_id)
+    """获取 NPC 列表
+    
+    v0.2.4: 从 Header 读取 tenant/site scope，强制过滤
+    """
+    query = select(NPC).where(
+        NPC.deleted_at.is_(None),
+        NPC.site_id == scope.site_id,
+    )
     if npc_type:
         query = query.where(NPC.npc_type == npc_type)
     query = query.offset(skip).limit(limit)
@@ -92,10 +97,18 @@ async def get_npc(
     npc_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> NPC:
-    """获取单个 NPC"""
+    """获取单个 NPC
+    
+    v0.2.4: 验证 NPC 属于当前 scope
+    """
     result = await db.execute(
-        select(NPC).where(NPC.id == npc_id, NPC.deleted_at.is_(None))
+        select(NPC).where(
+            NPC.id == npc_id,
+            NPC.deleted_at.is_(None),
+            NPC.site_id == scope.site_id,
+        )
     )
     npc = result.scalar_one_or_none()
     if not npc:
@@ -108,10 +121,14 @@ async def create_npc(
     data: NPCCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> NPC:
-    """创建 NPC"""
+    """创建 NPC
+    
+    v0.2.4: site_id 从 scope 获取，忽略请求体中的 site_id
+    """
     npc = NPC(
-        site_id=data.site_id,
+        site_id=scope.site_id,
         name=data.name,
         display_name=data.display_name,
         npc_type=data.npc_type,
@@ -134,10 +151,18 @@ async def update_npc(
     data: NPCUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> NPC:
-    """更新 NPC"""
+    """更新 NPC
+    
+    v0.2.4: 验证 NPC 属于当前 scope
+    """
     result = await db.execute(
-        select(NPC).where(NPC.id == npc_id, NPC.deleted_at.is_(None))
+        select(NPC).where(
+            NPC.id == npc_id,
+            NPC.deleted_at.is_(None),
+            NPC.site_id == scope.site_id,
+        )
     )
     npc = result.scalar_one_or_none()
     if not npc:
@@ -157,12 +182,20 @@ async def delete_npc(
     npc_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> None:
-    """删除 NPC（软删除）"""
+    """删除 NPC（软删除）
+    
+    v0.2.4: 验证 NPC 属于当前 scope
+    """
     from datetime import datetime, timezone
 
     result = await db.execute(
-        select(NPC).where(NPC.id == npc_id, NPC.deleted_at.is_(None))
+        select(NPC).where(
+            NPC.id == npc_id,
+            NPC.deleted_at.is_(None),
+            NPC.site_id == scope.site_id,
+        )
     )
     npc = result.scalar_one_or_none()
     if not npc:

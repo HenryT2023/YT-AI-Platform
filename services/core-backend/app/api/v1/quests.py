@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
+from app.core.tenant_scope import RequiredScope
 from app.db import get_db
 from app.domain.quest import Quest
 
@@ -81,16 +82,20 @@ class QuestResponse(BaseModel):
 async def list_quests(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
-    site_id: Optional[str] = Query(None),
+    scope: RequiredScope,
     quest_type: Optional[str] = Query(None),
     difficulty: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> List[Quest]:
-    """获取任务列表"""
-    query = select(Quest).where(Quest.deleted_at.is_(None))
-    if site_id:
-        query = query.where(Quest.site_id == site_id)
+    """获取任务列表
+    
+    v0.2.4: 从 Header 读取 tenant/site scope，强制过滤
+    """
+    query = select(Quest).where(
+        Quest.deleted_at.is_(None),
+        Quest.site_id == scope.site_id,
+    )
     if quest_type:
         query = query.where(Quest.quest_type == quest_type)
     if difficulty:
@@ -106,10 +111,18 @@ async def get_quest(
     quest_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Quest:
-    """获取单个任务"""
+    """获取单个任务
+    
+    v0.2.4: 验证任务属于当前 scope
+    """
     result = await db.execute(
-        select(Quest).where(Quest.id == quest_id, Quest.deleted_at.is_(None))
+        select(Quest).where(
+            Quest.id == quest_id,
+            Quest.deleted_at.is_(None),
+            Quest.site_id == scope.site_id,
+        )
     )
     quest = result.scalar_one_or_none()
     if not quest:
@@ -122,10 +135,14 @@ async def create_quest(
     data: QuestCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Quest:
-    """创建任务"""
+    """创建任务
+    
+    v0.2.4: site_id 从 scope 获取
+    """
     quest = Quest(
-        site_id=data.site_id,
+        site_id=scope.site_id,
         name=data.name,
         display_name=data.display_name,
         description=data.description,
@@ -152,10 +169,18 @@ async def update_quest(
     data: QuestUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> Quest:
-    """更新任务"""
+    """更新任务
+    
+    v0.2.4: 验证任务属于当前 scope
+    """
     result = await db.execute(
-        select(Quest).where(Quest.id == quest_id, Quest.deleted_at.is_(None))
+        select(Quest).where(
+            Quest.id == quest_id,
+            Quest.deleted_at.is_(None),
+            Quest.site_id == scope.site_id,
+        )
     )
     quest = result.scalar_one_or_none()
     if not quest:
@@ -175,12 +200,20 @@ async def delete_quest(
     quest_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[str, Depends(get_current_user)],
+    scope: RequiredScope,
 ) -> None:
-    """删除任务（软删除）"""
+    """删除任务（软删除）
+    
+    v0.2.4: 验证任务属于当前 scope
+    """
     from datetime import datetime, timezone
 
     result = await db.execute(
-        select(Quest).where(Quest.id == quest_id, Quest.deleted_at.is_(None))
+        select(Quest).where(
+            Quest.id == quest_id,
+            Quest.deleted_at.is_(None),
+            Quest.site_id == scope.site_id,
+        )
     )
     quest = result.scalar_one_or_none()
     if not quest:

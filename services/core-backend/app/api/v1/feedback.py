@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
 from app.core.rbac import OperatorOrAbove, ViewerOrAbove
+from app.core.tenant_scope import RequiredScope
 from app.core.audit import log_audit, AuditAction, TargetType
 from app.database.models.user_feedback import (
     UserFeedback,
@@ -214,12 +215,11 @@ async def create_feedback(
 
 @router.get("", response_model=FeedbackListResponse)
 async def list_feedback(
+    scope: RequiredScope,
     status: Optional[str] = Query(None, description="状态过滤"),
     feedback_type: Optional[str] = Query(None, description="类型过滤"),
     severity: Optional[str] = Query(None, description="严重程度过滤"),
     trace_id: Optional[str] = Query(None, description="trace_id 过滤"),
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: AsyncSession = Depends(get_db),
@@ -227,9 +227,12 @@ async def list_feedback(
     """
     查询反馈列表
 
-    支持按状态、类型、严重程度等过滤
+    v0.2.4: 从 Header 读取 tenant/site scope
     """
-    conditions = [UserFeedback.tenant_id == tenant_id]
+    conditions = [
+        UserFeedback.tenant_id == scope.tenant_id,
+        UserFeedback.site_id == scope.site_id,
+    ]
 
     if status:
         conditions.append(UserFeedback.status == status)
@@ -239,8 +242,6 @@ async def list_feedback(
         conditions.append(UserFeedback.severity == severity)
     if trace_id:
         conditions.append(UserFeedback.trace_id == trace_id)
-    if site_id:
-        conditions.append(UserFeedback.site_id == site_id)
 
     # 查询总数
     count_query = select(func.count(UserFeedback.id)).where(and_(*conditions))
@@ -268,23 +269,21 @@ async def list_feedback(
 
 @router.get("/stats", response_model=FeedbackStats)
 async def get_feedback_stats(
-    tenant_id: str = Query("yantian", description="租户 ID"),
-    site_id: Optional[str] = Query(None, description="站点 ID"),
+    scope: RequiredScope,
     days: int = Query(30, ge=1, le=365, description="统计天数"),
     db: AsyncSession = Depends(get_db),
 ):
     """
     获取反馈统计
 
-    包括纠错率、解决率、高频问题等
+    v0.2.4: 从 Header 读取 tenant/site scope
     """
     since = datetime.utcnow() - timedelta(days=days)
     conditions = [
-        UserFeedback.tenant_id == tenant_id,
+        UserFeedback.tenant_id == scope.tenant_id,
+        UserFeedback.site_id == scope.site_id,
         UserFeedback.created_at >= since,
     ]
-    if site_id:
-        conditions.append(UserFeedback.site_id == site_id)
 
     # 总数
     total_query = select(func.count(UserFeedback.id)).where(and_(*conditions))
