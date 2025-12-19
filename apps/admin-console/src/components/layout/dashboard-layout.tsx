@@ -23,6 +23,7 @@ const navigation = [
   { name: '场景管理', href: '/admin/scenes', icon: MapPin },
   { name: '任务管理', href: '/admin/quests', icon: Trophy },
   { name: '访客数据', href: '/admin/visitors', icon: Users },
+  { name: '游客画像', href: '/admin/visitor-profiles', icon: Users },
   { name: '系统设置', href: '/admin/settings', icon: Settings },
 ];
 
