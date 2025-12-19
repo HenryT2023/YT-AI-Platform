@@ -10,6 +10,7 @@ from app.database.models.user import User
 from app.database.models.content import Content, ContentStatus
 from app.database.models.npc_profile import NPCProfile
 from app.database.models.quest import Quest, QuestStep
+from app.database.models.quest_submission import QuestSubmission
 from app.database.models.evidence import Evidence, EvidenceSourceType
 from app.database.models.conversation import Conversation, Message
 from app.database.models.trace_ledger import TraceLedger, PolicyMode
@@ -35,6 +36,7 @@ __all__ = [
     # Quest
     "Quest",
     "QuestStep",
+    "QuestSubmission",
     # Evidence
     "Evidence",
     "EvidenceSourceType",

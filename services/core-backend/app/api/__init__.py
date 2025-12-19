@@ -15,6 +15,7 @@ from app.api.v1 import (
     npcs,
     quests,
     quest_progress,
+    quest_submissions,
     visitors,
     tenants,
     users,
@@ -56,6 +57,7 @@ router.include_router(pois.router, prefix="/v1/pois", tags=["兴趣点"])
 router.include_router(npcs.router, prefix="/v1/npcs", tags=["NPC"])
 router.include_router(quests.router, prefix="/v1/quests", tags=["研学任务"])
 router.include_router(quest_progress.router, prefix="/v1/quest-progress", tags=["任务进度"])
+router.include_router(quest_submissions.router, prefix="/v1/admin/quest-submissions", tags=["任务提交管理"])
 router.include_router(visitors.router, prefix="/v1/visitors", tags=["游客"])
 
 # 内容与知识库
