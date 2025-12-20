@@ -1,9 +1,34 @@
 'use client'
 
 import Link from 'next/link'
-import { MessageCircle, Sparkles, Activity, Loader2, Target } from 'lucide-react'
+import { MessageCircle, Sparkles, Activity, Loader2, Target, Sun, Leaf, Award, ChevronRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { fetchPublicNPCs, type PublicNPC } from '@/lib/api'
+
+interface HomeRecommendations {
+  solar_term: {
+    name: string
+    description: string
+    farming_advice: string
+    poem: string
+    customs: string[]
+    foods: string[]
+  }
+  recommended_quests: Array<{
+    id: string
+    title: string
+    description: string
+    difficulty: string
+    reason: string
+  }>
+  achievement_hints: Array<{
+    name: string
+    progress: string
+    hint: string
+  }>
+  topics: string[]
+  greeting: string
+}
 
 // 默认 NPC 列表（fallback）
 const DEFAULT_NPC_LIST = [
@@ -85,18 +110,23 @@ export default function HomePage() {
   const [npcs, setNpcs] = useState<NPCCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [recommendations, setRecommendations] = useState<HomeRecommendations | null>(null)
 
   useEffect(() => {
-    async function loadNPCs() {
+    async function loadData() {
       setLoading(true)
       setError(null)
       
       try {
-        const data = await fetchPublicNPCs()
-        if (data.length > 0) {
-          setNpcs(data.map(transformNPC))
+        // 并行加载 NPC 和推荐数据
+        const [npcData, recData] = await Promise.all([
+          fetchPublicNPCs(),
+          fetch('/api/recommendations/home').then(r => r.ok ? r.json() : null).catch(() => null),
+        ])
+
+        if (npcData.length > 0) {
+          setNpcs(npcData.map(transformNPC))
         } else {
-          // Fallback to default
           setNpcs(DEFAULT_NPC_LIST.map(npc => ({
             id: npc.npc_id,
             name: npc.name,
@@ -106,10 +136,13 @@ export default function HomePage() {
             color: npc.color || 'from-slate-500 to-slate-600',
           })))
         }
+
+        if (recData) {
+          setRecommendations(recData)
+        }
       } catch (err) {
-        console.error('Failed to load NPCs:', err)
+        console.error('Failed to load data:', err)
         setError('加载失败，请刷新重试')
-        // Fallback
         setNpcs(DEFAULT_NPC_LIST.map(npc => ({
           id: npc.npc_id,
           name: npc.name,
@@ -123,7 +156,7 @@ export default function HomePage() {
       }
     }
     
-    loadNPCs()
+    loadData()
   }, [])
 
   return (
@@ -158,25 +191,116 @@ export default function HomePage() {
         </div>
       </header>
       
+      {/* 个性化问候 */}
+      {recommendations?.greeting && (
+        <div className="px-4 pt-4">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 text-white">
+            <p className="text-lg font-medium">{recommendations.greeting}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 今日节气 */}
+      {recommendations?.solar_term?.name && (
+        <div className="px-4 pt-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Sun className="w-5 h-5 text-orange-500" />
+              <h2 className="font-semibold text-slate-900 dark:text-white">今日节气</h2>
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                {recommendations.solar_term.name}
+              </span>
+            </div>
+            {recommendations.solar_term.description && (
+              <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
+                {recommendations.solar_term.description}
+              </p>
+            )}
+            {recommendations.solar_term.poem && (
+              <p className="text-sm text-slate-500 dark:text-slate-400 italic border-l-2 border-orange-300 pl-3">
+                "{recommendations.solar_term.poem}"
+              </p>
+            )}
+            {recommendations.solar_term.customs?.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recommendations.solar_term.customs.map((custom, i) => (
+                  <span key={i} className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-xs text-slate-600 dark:text-slate-300">
+                    {custom}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 推荐话题 */}
+      {recommendations?.topics && recommendations.topics.length > 0 && (
+        <div className="px-4 pt-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Leaf className="w-5 h-5 text-green-500" />
+              <h2 className="font-semibold text-slate-900 dark:text-white">推荐话题</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recommendations.topics.map((topic, i) => (
+                <span key={i} className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm">
+                  {topic}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 成就提示 */}
+      {recommendations?.achievement_hints && recommendations.achievement_hints.length > 0 && (
+        <div className="px-4 pt-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <Award className="w-5 h-5 text-purple-500" />
+              <h2 className="font-semibold text-slate-900 dark:text-white">即将解锁</h2>
+            </div>
+            <div className="space-y-2">
+              {recommendations.achievement_hints.map((hint, i) => (
+                <div key={i} className="flex items-center justify-between p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{hint.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{hint.hint}</p>
+                  </div>
+                  <span className="text-sm font-medium text-purple-600 dark:text-purple-400">{hint.progress}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* NPC 列表 */}
-      <div className="px-4 py-6 space-y-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-12 text-slate-500">
-            {error}
-          </div>
-        ) : npcs.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            暂无可用的 NPC
-          </div>
-        ) : (
-          npcs.map((npc) => (
-            <NPCCard key={npc.id} npc={npc} />
-          ))
-        )}
+      <div className="px-4 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <MessageCircle className="w-5 h-5 text-blue-500" />
+          <h2 className="font-semibold text-slate-900 dark:text-white">与村民对话</h2>
+        </div>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-slate-500">
+              {error}
+            </div>
+          ) : npcs.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              暂无可用的 NPC
+            </div>
+          ) : (
+            npcs.map((npc) => (
+              <NPCCard key={npc.id} npc={npc} />
+            ))
+          )}
+        </div>
       </div>
       
       {/* Footer */}
