@@ -80,11 +80,17 @@ class Settings(BaseSettings):
 
     # Qdrant 配置
     QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_HOST: str = "localhost"
+    QDRANT_PORT: int = 6333
     QDRANT_COLLECTION: str = "yantian_evidence"
     QDRANT_ENABLED: bool = True
 
     # Embedding 配置
     OPENAI_API_KEY: str = ""
+    DASHSCOPE_API_KEY: str = ""
+    EMBEDDING_PROVIDER: str = "openai"  # openai | dashscope
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS: int = 1536
     BAIDU_API_KEY: str = ""
     BAIDU_SECRET_KEY: str = ""
 

@@ -40,6 +40,7 @@ from app.api.v1 import (
     runtime_config,
     alerts,
     public,
+    search,
 )
 
 router = APIRouter()
@@ -116,3 +117,6 @@ router.include_router(alerts.router, prefix="/v1", tags=["告警监控"])
 
 # Public API（无需鉴权）
 router.include_router(public.router, prefix="/v1", tags=["公开接口"])
+
+# 语义检索
+router.include_router(search.router, prefix="/v1/search", tags=["语义检索"])
