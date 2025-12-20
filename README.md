@@ -36,7 +36,7 @@
 | 向量库 | Qdrant / Pinecone |
 | 消息队列 | Celery + Redis |
 | IoT | MQTT |
-| AI 模型 | OpenAI / Qwen / Llama（抽象接口） |
+| AI 模型 | 百度文心 / 阿里通义 / OpenAI（抽象接口） |
 | 前端 | Next.js 14 (Admin) / 微信小程序 |
 | 容器化 | Docker + Docker Compose |
 | CI/CD | GitHub Actions |
