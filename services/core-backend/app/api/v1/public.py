@@ -487,3 +487,89 @@ async def get_quest_progress(
     except Exception as e:
         log.error("quest_progress_error", error=str(e))
         return QuestProgressResponse()
+
+
+# ============================================================
+# 推荐与上下文 API (v0.4.0)
+# ============================================================
+
+@router.get("/recommendations/home")
+async def get_public_home_recommendations(
+    tenant_id: str = Query("yantian", description="租户 ID"),
+    site_id: str = Query("main", description="站点 ID"),
+    visitor_id: Optional[str] = Query(None, description="游客 ID"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取首页聚合推荐数据（公开接口）
+
+    包含：今日节气、推荐任务、成就提示、推荐话题、问候语
+    """
+    from uuid import UUID
+    from app.services.context import ContextService
+    from app.services.recommendation import RecommendationService
+
+    log = logger.bind(tenant_id=tenant_id, site_id=site_id)
+
+    try:
+        vid = UUID(visitor_id) if visitor_id else None
+        service = RecommendationService(db)
+
+        recommendations = await service.get_home_recommendations(
+            tenant_id=tenant_id,
+            site_id=site_id,
+            visitor_id=vid,
+        )
+
+        log.info("home_recommendations_fetched")
+        return recommendations
+
+    except Exception as e:
+        log.error("home_recommendations_error", error=str(e))
+        return {
+            "solar_term": {},
+            "recommended_quests": [],
+            "achievement_hints": [],
+            "topics": [],
+            "greeting": "欢迎来到严田！",
+        }
+
+
+@router.get("/recommendations/topics")
+async def get_public_topic_recommendations(
+    tenant_id: str = Query("yantian", description="租户 ID"),
+    site_id: str = Query("main", description="站点 ID"),
+    visitor_id: Optional[str] = Query(None, description="游客 ID"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取推荐对话话题（公开接口）
+    """
+    from uuid import UUID
+    from app.services.context import ContextService
+    from app.services.recommendation import RecommendationService
+
+    log = logger.bind(tenant_id=tenant_id, site_id=site_id)
+
+    try:
+        vid = UUID(visitor_id) if visitor_id else None
+
+        context_service = ContextService(db)
+        context = await context_service.build_context(
+            tenant_id=tenant_id,
+            site_id=site_id,
+            visitor_id=vid,
+        )
+
+        service = RecommendationService(db)
+        topics = await service._get_recommended_topics(
+            user_context=context["user"],
+            env_context=context["environment"],
+        )
+
+        log.info("topic_recommendations_fetched", count=len(topics))
+        return {"topics": topics}
+
+    except Exception as e:
+        log.error("topic_recommendations_error", error=str(e))
+        return {"topics": []}

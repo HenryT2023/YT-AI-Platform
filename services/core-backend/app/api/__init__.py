@@ -10,6 +10,7 @@ from app.api.v1 import (
     achievements,
     solar_terms,
     iot_devices,
+    recommendations,
     auth,
     chat,
     sites,
@@ -71,6 +72,9 @@ router.include_router(solar_terms.router, prefix="/v1", tags=["节气农耕"])
 
 # IoT 设备管理
 router.include_router(iot_devices.router, prefix="/v1", tags=["IoT设备"])
+
+# 推荐与上下文
+router.include_router(recommendations.router, prefix="/v1", tags=["智能推荐"])
 
 # 内容与知识库
 router.include_router(contents.router, prefix="/v1/contents", tags=["内容"])
