@@ -41,6 +41,7 @@ from app.api.v1 import (
     alerts,
     public,
     search,
+    site_management,
 )
 
 router = APIRouter()
@@ -120,3 +121,6 @@ router.include_router(public.router, prefix="/v1", tags=["公开接口"])
 
 # 语义检索
 router.include_router(search.router, prefix="/v1/search", tags=["语义检索"])
+
+# 站点管理
+router.include_router(site_management.router, prefix="/v1/site-management", tags=["站点管理"])

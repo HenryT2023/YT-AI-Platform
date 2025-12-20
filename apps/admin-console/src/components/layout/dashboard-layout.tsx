@@ -19,6 +19,7 @@ import clsx from 'clsx';
 
 const navigation = [
   { name: '仪表盘', href: '/admin/dashboard', icon: LayoutDashboard },
+  { name: '站点管理', href: '/admin/sites', icon: MapPin },
   { name: 'NPC 管理', href: '/admin/npcs', icon: MessageSquare },
   { name: '场景管理', href: '/admin/scenes', icon: MapPin },
   { name: '任务管理', href: '/admin/quests', icon: Trophy },

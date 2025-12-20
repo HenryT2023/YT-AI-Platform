@@ -5,7 +5,7 @@
 """
 
 from app.database.models.tenant import Tenant
-from app.database.models.site import Site
+from app.database.models.site import Site, SiteStatsDaily
 from app.database.models.user import User
 from app.database.models.content import Content, ContentStatus
 from app.database.models.npc_profile import NPCProfile
@@ -50,6 +50,7 @@ __all__ = [
     # Core
     "Tenant",
     "Site",
+    "SiteStatsDaily",
     "User",
     # Content
     "Content",
