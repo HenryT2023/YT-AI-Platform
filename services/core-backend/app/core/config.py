@@ -88,8 +88,8 @@ class Settings(BaseSettings):
     # Embedding 配置
     OPENAI_API_KEY: str = ""
     DASHSCOPE_API_KEY: str = ""
-    EMBEDDING_PROVIDER: str = "openai"  # openai | dashscope
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_PROVIDER: str = "dashscope"  # dashscope | openai
+    EMBEDDING_MODEL: str = "text-embedding-v2"  # DashScope 默认模型
     EMBEDDING_DIMENSIONS: int = 1536
     BAIDU_API_KEY: str = ""
     BAIDU_SECRET_KEY: str = ""

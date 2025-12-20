@@ -72,8 +72,8 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "llama3"
 
     # Embedding 配置
-    EMBEDDING_PROVIDER: str = "openai"
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_PROVIDER: str = "dashscope"  # dashscope | openai
+    EMBEDDING_MODEL: str = "text-embedding-v2"  # DashScope 默认模型
 
     # Qdrant 向量数据库配置
     QDRANT_HOST: str = "localhost"
