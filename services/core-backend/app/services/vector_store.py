@@ -75,6 +75,8 @@ class VectorStore:
     @property
     def client(self) -> QdrantClient:
         """获取 Qdrant 客户端"""
+        if settings.LOCAL_OS_MODE:
+            raise RuntimeError("本地统一模式禁用Qdrant外呼")
         if self._client is None:
             self._client = QdrantClient(host=self.host, port=self.port)
         return self._client

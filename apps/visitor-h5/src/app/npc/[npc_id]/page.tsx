@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getOrCreateSessionId, clearSessionId } from '@/lib/session'
 import { npcChat, isNPCChatError, getPolicyModeLabel, getPolicyModeColor, fetchPublicNPCs, type PolicyMode, type CitationItem, type PublicNPC } from '@/lib/api'
 import FeedbackModal from '@/components/FeedbackModal'
+import { LOCAL_OS_MODE } from '@/lib/config'
 
 // NPC 数据缓存
 let npcDataCache: Record<string, {
@@ -25,25 +26,25 @@ const DEFAULT_NPC_DATA: Record<string, {
   greeting: string
 }> = {
   npc_elder_chen: {
-    name: '陈老伯',
-    title: '村中长者',
+    name: '文化查证向导',
+    title: '演示角色 · 非真实村民',
     avatar: '👴',
     color: 'from-amber-500 to-orange-600',
-    greeting: '年轻人，欢迎来到严田村。我在这里生活了七十多年，有什么想知道的尽管问。',
+    greeting: '你好，这是原严田 OS 的演示对话角色，不代表真实村民或个人经历。你可以查问本地知识；有依据时显示出处，资料不足时明确说明。',
   },
   npc_xiaomei: {
-    name: '小美',
-    title: '返乡创业青年',
+    name: '乡村探索向导',
+    title: '演示角色 · 非真实村民',
     avatar: '👩',
     color: 'from-pink-500 to-rose-600',
-    greeting: '嗨！我是小美，去年从城里回来帮村里搞智慧农业。你对我们的项目感兴趣吗？',
+    greeting: '这是乡村探索的演示角色，不代表真实返乡者或经营项目。请用问题查证资料，未核验的内容不会补写成村庄故事。',
   },
   npc_master_li: {
-    name: '李师傅',
-    title: '非遗传承人',
+    name: '工艺学习向导',
+    title: '演示角色 · 无传承人身份认定',
     avatar: '👨‍🔧',
     color: 'from-emerald-500 to-teal-600',
-    greeting: '欢迎来到我的工坊。这些竹编和木雕都是祖辈传下来的手艺，你想了解哪一样？',
+    greeting: '这是工艺学习的演示角色，不代表真实工艺师或非遗传承人。图样与解释需要来源，制作意见需要实际审阅。',
   },
 }
 
@@ -58,10 +59,10 @@ async function loadNPCData(): Promise<Record<string, { name: string; title: stri
       for (const npc of npcs) {
         npcDataCache[npc.npc_id] = {
           name: npc.name,
-          title: npc.role || '村民',
+          title: LOCAL_OS_MODE ? '演示角色 · 本地查证入口' : npc.role || '村民',
           avatar: npc.avatar_emoji || '👤',
           color: npc.color || 'from-slate-500 to-slate-600',
-          greeting: npc.greeting || `你好，我是${npc.name}。`,
+          greeting: LOCAL_OS_MODE ? '这是原 OS 的演示角色入口，不代表真实村民、传承身份或个人经历。当前从同一工作室知识库检索并摘录，没有生成式模型；你可以问“徽州三雕包括什么？”。' : npc.greeting || `你好，我是${npc.name}。`,
         }
       }
       return npcDataCache
@@ -84,6 +85,8 @@ interface Message {
   followupQuestions?: string[]
   isError?: boolean
   hasFeedback?: boolean  // 是否已提交纠错
+  retrievalMode?: 'extractive'
+  evidenceStatus?: 'answered' | 'insufficient_evidence'
 }
 
 // ============================================================
@@ -136,7 +139,7 @@ function MessageBubble({ message, onFeedback, onFollowup }: MessageBubbleProps) 
         {message.policyMode && (
           <div className="mt-2 flex items-center gap-2">
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPolicyModeColor(message.policyMode)}`}>
-              {getPolicyModeLabel(message.policyMode)}
+              {message.retrievalMode === 'extractive' ? (message.evidenceStatus === 'answered' ? '本地证据摘录 · 有引用' : '本地查证 · 证据不足') : getPolicyModeLabel(message.policyMode)}
             </span>
           </div>
         )}
@@ -176,6 +179,10 @@ function MessageBubble({ message, onFeedback, onFollowup }: MessageBubbleProps) 
                             {citation.excerpt}
                           </div>
                         )}
+                        {citation.knowledge_version !== undefined && <div className="mt-1 text-slate-500">知识 v{citation.knowledge_version} · {citation.review_status === 'source_checked' ? '已核对出处' : citation.review_status === 'approved' ? '已审阅' : citation.review_status}</div>}
+                        {citation.locator && <div className="mt-1 text-slate-500">定位：{citation.locator}</div>}
+                        {citation.region_scope && <div className="mt-1 text-slate-500">范围：{citation.region_scope}</div>}
+                        {citation.url && /^https?:\/\//i.test(citation.url) && <a href={citation.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-primary-600 underline">打开原始来源 ↗</a>}
                       </div>
                     ))}
                   </div>
@@ -191,7 +198,7 @@ function MessageBubble({ message, onFeedback, onFollowup }: MessageBubbleProps) 
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 >
                   <Hash className="w-3.5 h-3.5" />
-                  <span>Trace</span>
+                  <span>{message.retrievalMode === 'extractive' ? '查证记录' : 'Trace'}</span>
                   {showTrace ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
                 
@@ -306,7 +313,6 @@ export default function NPCChatPage() {
     if (npcId) {
       const sid = getOrCreateSessionId(npcId)
       setSessionId(sid)
-      console.log(`[Session] NPC: ${npcId}, Session: ${sid}`)
     }
   }, [npcId])
   
@@ -368,6 +374,7 @@ export default function NPCChatPage() {
       }
       setMessages((prev) => [...prev, errorMessage])
       setError(result.message)
+      setInput(query)
     } else {
       // 成功响应
       const assistantMessage: Message = {
@@ -378,6 +385,8 @@ export default function NPCChatPage() {
         citations: result.citations,
         traceId: result.trace_id,
         followupQuestions: result.followup_questions,
+        retrievalMode: result.retrieval_mode,
+        evidenceStatus: result.evidence_status,
       }
       setMessages((prev) => [...prev, assistantMessage])
     }
@@ -441,6 +450,8 @@ export default function NPCChatPage() {
         citations: result.citations,
         traceId: result.trace_id,
         followupQuestions: result.followup_questions,
+        retrievalMode: result.retrieval_mode,
+        evidenceStatus: result.evidence_status,
       }
       setMessages((prev) => [...prev, assistantMessage])
     }
@@ -462,7 +473,6 @@ export default function NPCChatPage() {
         content: npc?.greeting || '你好，有什么可以帮助你的？',
       },
     ])
-    console.log(`[Session] Reset - NPC: ${npcId}, New Session: ${newSessionId}`)
   }
   
   return (
@@ -499,6 +509,8 @@ export default function NPCChatPage() {
           </button>
         </div>
       </header>
+
+      {LOCAL_OS_MODE && <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs leading-relaxed text-emerald-800">本地证据检索 · 没有生成式模型或已训练权重。与<a href="/studio/#knowledge" className="underline">文明工作室</a>使用同一知识库；区域资料不能自动证明严田村史。</div>}
       
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

@@ -43,11 +43,15 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
+        allow_origins=[] if settings.LOCAL_OS_MODE else settings.CORS_ORIGINS,
+        allow_credentials=not settings.LOCAL_OS_MODE,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if settings.LOCAL_OS_MODE:
+        from app.local_os.integration import install_local_os
+        install_local_os(app, settings.CIVILIZATION_DB_PATH, operations_db_path=settings.OPERATIONS_DB_PATH or None)
 
     app.include_router(api_router, prefix="/api")
 

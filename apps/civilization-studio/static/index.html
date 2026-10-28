@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#182b29">
+  <title>严田 · 文明工作室</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='6' fill='%239b4332'/%3E%3Cpath d='M9 9h22v22H9zm11 0v22M9 20h22' fill='none' stroke='%23fff7e7' stroke-width='2'/%3E%3C/svg%3E">
+  <script>
+    window.YANTIAN_STUDIO_BASE = /^\/studio(?:\/|$)/.test(location.pathname) ? '/studio' : '';
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = window.YANTIAN_STUDIO_BASE + '/static/style.css?v=culture-qa-20261023-v1.1';
+    document.head.append(stylesheet);
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到工作区</a>
+  <div class="mobile-shade" id="mobile-shade" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-label="主导航">
+    <a class="brand" href="#qa" aria-label="严田文化问答首页"><span class="brand-seal">田</span><span><strong>严田</strong><small>文明工作室</small></span></a>
+    <div class="sidebar-caption">知识有来处，创作有回声。</div>
+    <nav id="navigation">
+      <a href="#qa" data-route="qa"><span class="nav-glyph">◌</span><span>有出处的问答</span><span class="nav-number">01</span></a>
+      <div class="nav-label">资料与工作记录</div>
+      <a href="#knowledge" data-route="knowledge"><span class="nav-glyph">▤</span><span>文化知识与来源</span><span class="nav-number">02</span></a>
+      <a href="#dashboard" data-route="dashboard"><span class="nav-glyph">◫</span><span>工作室概览</span><span class="nav-number">03</span></a>
+      <a href="#designs" data-route="designs"><span class="nav-glyph">◇</span><span>木刻稿样</span><span class="nav-number">04</span></a>
+      <a href="#reviews" data-route="reviews"><span class="nav-glyph">✓</span><span>审阅与反馈</span><span class="nav-number">05</span></a>
+    </nav>
+    <div class="sidebar-bottom"><span class="status-dot"></span> 本地研究空间 <span class="sidebar-version" id="sidebar-version">V1</span><p>知识 · 图样 · 手工审阅<br>机器接口尚未启用</p></div>
+  </aside>
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="topbar-start"><button type="button" class="icon-button mobile-menu" id="menu-toggle" aria-label="打开导航" aria-expanded="false" aria-controls="sidebar">☰</button><a class="os-return" id="os-return" href="/" hidden>← 返回严田 OS</a><span class="breadcrumb">严田 / <span id="page-crumb">文化问答</span></span></div>
+      <div class="topbar-actions"><span class="local-label"><span class="status-dot"></span>仅本地运行</span><a class="button button-quiet export-button" href="/api/export" download>↓ <span>导出工作资料</span></a></div>
+    </header>
+    <main id="main" tabindex="-1"><div class="initial-loading"><span class="loading-mark">田</span><p>正在读取本地文化资料…</p></div></main>
+    <footer class="page-footer"><span>严田文明工作室</span><span>本地证据检索 · 原创设计练习 · 版本可追溯</span></footer>
+  </div>
+  <div class="toast-region" id="toasts" aria-live="polite" aria-atomic="false"></div>
+  <dialog id="editor-dialog" aria-labelledby="dialog-title"><div id="dialog-content"></div></dialog>
+  <script>
+    const studioScript = document.createElement('script');
+    studioScript.src = window.YANTIAN_STUDIO_BASE + '/static/app.js?v=culture-qa-20261023-v1.1';
+    document.body.append(studioScript);
+  </script>
+</body>
+</html>

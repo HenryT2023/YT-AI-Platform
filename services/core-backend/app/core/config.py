@@ -5,6 +5,7 @@
 """
 
 from functools import lru_cache
+import os
 from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,6 +29,9 @@ class Settings(BaseSettings):
     # 服务配置
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    LOCAL_OS_MODE: bool = False
+    CIVILIZATION_DB_PATH: str = ""
+    OPERATIONS_DB_PATH: str = ""
 
     # 数据库配置
     DATABASE_URL: str = "postgresql+asyncpg://yantian:yantian_dev_password@localhost:5432/yantian"
@@ -112,7 +116,10 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """获取配置单例"""
-    return Settings()
+    # Local integration is explicitly configured by its launcher; never consume
+    # a repository .env or silently inherit production connection settings.
+    local = os.environ.get("LOCAL_OS_MODE", "").lower() in {"true", "1", "yes"}
+    return Settings(_env_file=None) if local else Settings()
 
 
 settings = get_settings()

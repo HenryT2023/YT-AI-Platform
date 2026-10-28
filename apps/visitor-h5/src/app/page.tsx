@@ -4,6 +4,9 @@ import Link from 'next/link'
 import { MessageCircle, Sparkles, Activity, Loader2, Target, Sun, Leaf, Award, ChevronRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { fetchPublicNPCs, type PublicNPC } from '@/lib/api'
+import { LOCAL_OS_MODE } from '@/lib/config'
+import LocalOSPanel from '@/components/LocalOSPanel'
+import Workspace from '@/components/workspace/Workspace'
 
 interface HomeRecommendations {
   solar_term: {
@@ -34,9 +37,9 @@ interface HomeRecommendations {
 const DEFAULT_NPC_LIST = [
   {
     npc_id: 'npc_elder_chen',
-    name: '陈老伯',
-    role: '村中长者',
-    intro: '严田村的老一辈，见证了村庄的变迁，熟知各种传统习俗和历史故事。',
+    name: '文化查证向导',
+    role: '演示角色 · 非真实村民',
+    intro: '复用原有NPC对话入口，查找本地文化知识及出处。角色不代表真实村民、历史经历或专业身份。',
     avatar_emoji: '👴',
     color: 'from-amber-500 to-orange-600',
   },
@@ -55,8 +58,8 @@ function transformNPC(npc: PublicNPC): NPCCardData {
   return {
     id: npc.npc_id,
     name: npc.name,
-    title: npc.role || '村民',
-    description: npc.intro || '',
+    title: LOCAL_OS_MODE ? '演示角色 · 本地查证入口' : npc.role || '村民',
+    description: LOCAL_OS_MODE ? '角色仅作为原OS的交互入口，不代表真实村民或传承身份。回答从同一工作室知识库检索并显示出处。' : npc.intro || '',
     avatar: npc.avatar_emoji || '👤',
     color: npc.color || 'from-slate-500 to-slate-600',
   }
@@ -106,7 +109,7 @@ function NPCCard({ npc }: { npc: NPCCardData }) {
   )
 }
 
-export default function HomePage() {
+function VisitorHomePage() {
   const [npcs, setNpcs] = useState<NPCCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -121,7 +124,7 @@ export default function HomePage() {
         // 并行加载 NPC 和推荐数据
         const [npcData, recData] = await Promise.all([
           fetchPublicNPCs(),
-          fetch('/api/recommendations/home').then(r => r.ok ? r.json() : null).catch(() => null),
+          LOCAL_OS_MODE ? Promise.resolve(null) : fetch('/api/recommendations/home').then(r => r.ok ? r.json() : null).catch(() => null),
         ])
 
         if (npcData.length > 0) {
@@ -169,7 +172,7 @@ export default function HomePage() {
               🌾 严田 AI
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              选择一位村民，开始你的故事
+              {LOCAL_OS_MODE ? '原游客入口 · 文化查证与文明工作室' : '选择一位村民，开始你的故事'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -190,6 +193,8 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {LOCAL_OS_MODE && <div className="px-4 pt-4"><LocalOSPanel /></div>}
       
       {/* 个性化问候 */}
       {recommendations?.greeting && (
@@ -280,7 +285,7 @@ export default function HomePage() {
       <div className="px-4 py-4">
         <div className="flex items-center gap-2 mb-3">
           <MessageCircle className="w-5 h-5 text-blue-500" />
-          <h2 className="font-semibold text-slate-900 dark:text-white">与村民对话</h2>
+          <h2 className="font-semibold text-slate-900 dark:text-white">{LOCAL_OS_MODE ? '原 NPC 对话入口' : '与村民对话'}</h2>
         </div>
         <div className="space-y-4">
           {loading ? (
@@ -311,4 +316,8 @@ export default function HomePage() {
       </footer>
     </div>
   )
+}
+
+export default function HomePage({ searchParams }: { searchParams?: { view?: string } }) {
+  return LOCAL_OS_MODE && searchParams?.view !== 'visitor' ? <Workspace /> : <VisitorHomePage />
 }

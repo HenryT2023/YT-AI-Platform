@@ -520,6 +520,24 @@ class ToolExecutor:
         """
         from app.core.config import settings
 
+        if settings.LOCAL_OS_MODE:
+            from app.local_os.bridge import assert_scope, get_service
+            assert_scope(ctx.tenant_id, ctx.site_id)
+            matches = await get_service().search(input.query, input.domains, input.limit, input.min_score)
+            items = [EvidenceItem(
+                id=item["id"], title=item["title"], excerpt=item["content"][:650],
+                source_type=item["source"]["source_kind"], source_ref=item["source"]["url"] or item["source_id"],
+                confidence=None, verified=item["review_status"] == "approved", tags=[item["domain"]],
+                retrieval_score=item["retrieval_score"], knowledge_version=item["version"],
+                source_id=item["source_id"], locator=item["locator"], region_scope=item["region_scope"],
+                rights_scope=item["rights_scope"], review_status=item["review_status"],
+                source_scope=item["source"]["scope"], source_rights_scope=item["source"]["rights_scope"],
+                domain=item["domain"], kind=item["kind"],
+                verification_semantics="local_review_declaration_not_independent_fact_verification"
+            ) for item in matches]
+            return RetrieveEvidenceOutput(items=items, total=len(items), query=input.query,
+                strategy="local_canonical", strategy_used="local_canonical", search_method="local_canonical")
+
         original_strategy = input.strategy
         strategy = original_strategy
         if not strategy or strategy not in ("trgm", "qdrant", "hybrid"):

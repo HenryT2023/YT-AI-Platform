@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { X, AlertTriangle, Loader2, CheckCircle } from 'lucide-react'
 import { submitFeedback, isFeedbackError, type FeedbackType, type FeedbackSeverity } from '@/lib/api'
-import { TENANT_ID, SITE_ID } from '@/lib/config'
+import { TENANT_ID, SITE_ID, LOCAL_OS_MODE } from '@/lib/config'
 
 interface FeedbackModalProps {
   isOpen: boolean
@@ -110,7 +110,7 @@ export default function FeedbackModal({
             <div className="flex flex-col items-center justify-center py-8">
               <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
               <p className="text-lg font-medium text-slate-900 dark:text-white">已提交，感谢你的纠错</p>
-              <p className="text-sm text-slate-500 mt-1">我们会尽快处理</p>
+              <p className="text-sm text-slate-500 mt-1">{LOCAL_OS_MODE ? '已记录到本地纠错队列，等待人工核对；不会自动修改知识或训练模型。' : '我们会尽快处理'}</p>
             </div>
           ) : (
             <div className="space-y-5">

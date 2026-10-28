@@ -4,14 +4,17 @@ MCP 工具执行器
 负责执行 MCP 工具调用，记录审计日志
 """
 
+from __future__ import annotations
+
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import RequestContext
+if TYPE_CHECKING:
+    from app.core.deps import RequestContext
 from app.core.permissions import Permission, has_permission
 from app.domain.tool_call_log import ToolCallLog, ToolCallStatus
 from app.services.mcp_registry import MCPToolRegistry, get_mcp_registry
@@ -164,6 +167,14 @@ class ToolExecutor:
 
     async def _tool_knowledge_search(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """知识检索工具实现"""
+        from app.core.config import settings
+        if settings.LOCAL_OS_MODE:
+            from app.local_os.bridge import assert_scope, get_service, legacy_dto
+            assert_scope(self.ctx.tenant_id, self.ctx.site_id)
+            matches = await get_service().search(params.get("query", ""), params.get("domains"), params.get("top_k", 5))
+            return {"results": [{**legacy_dto(item), "score": item["retrieval_score"],
+                                 "knowledge_version": item["version"], "retrieval_method": "local_canonical"}
+                                for item in matches], "total_count": len(matches), "mode": "local_canonical"}
         from sqlalchemy import select, func
         from app.domain.knowledge import KnowledgeEntry
 

@@ -246,12 +246,23 @@ class EvidenceItem(BaseModel):
     source_ref: Optional[str] = None
     title: Optional[str] = None
     excerpt: str
-    confidence: float = 1.0
+    confidence: Optional[float] = 1.0
     verified: bool = False
     tags: List[str] = Field(default_factory=list)
     retrieval_score: Optional[float] = Field(None, description="检索分数")
     trgm_score: Optional[float] = Field(None, description="pg_trgm 分数")
     qdrant_score: Optional[float] = Field(None, description="Qdrant 向量分数")
+    knowledge_version: Optional[int] = None
+    source_id: Optional[str] = None
+    locator: Optional[str] = None
+    region_scope: Optional[str] = None
+    rights_scope: Optional[str] = None
+    review_status: Optional[str] = None
+    source_scope: Optional[str] = None
+    source_rights_scope: Optional[str] = None
+    domain: Optional[str] = None
+    kind: Optional[str] = None
+    verification_semantics: Optional[str] = None
 
 
 class RetrieveEvidenceOutput(BaseModel):

@@ -305,6 +305,9 @@ async def send_device_command(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """发送设备控制命令（预留接口）"""
+    from app.core.config import settings
+    if settings.LOCAL_OS_MODE:
+        raise HTTPException(status_code=423, detail="本地模式禁用设备控制；没有写入命令日志或加入队列。")
     result = await db.execute(
         select(IoTDevice).where(
             IoTDevice.id == device_id,
