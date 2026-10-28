@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw, CheckCircle, XCircle, Clock, Server } from 'lucide-react'
 import Link from 'next/link'
-import { AI_ORCH_BASE, CORE_BASE, TENANT_ID, SITE_ID } from '@/lib/config'
+import { AI_ORCH_BASE, CORE_BASE, TENANT_ID, SITE_ID, LOCAL_OS_MODE } from '@/lib/config'
+import LocalOSPanel from '@/components/LocalOSPanel'
 
 interface ServiceStatus {
   name: string
@@ -57,7 +58,11 @@ async function checkService(name: string, url: string): Promise<ServiceStatus> {
 }
 
 export default function HealthPage() {
-  const [services, setServices] = useState<ServiceStatus[]>([
+  const [services, setServices] = useState<ServiceStatus[]>(LOCAL_OS_MODE ? [
+    { name: '原 OS 本地整合', url: '/api/local-os/status', status: 'checking' },
+    { name: '同一知识与工艺服务', url: '/studio/api/status', status: 'checking' },
+    { name: '机器预留接口（未启用）', url: '/studio/api/machines/capabilities', status: 'checking' },
+  ] : [
     { name: 'AI Orchestrator', url: `${AI_ORCH_BASE}/health`, status: 'checking' },
     { name: 'Core Backend', url: `${CORE_BASE}/health`, status: 'checking' },
   ])
@@ -102,6 +107,7 @@ export default function HealthPage() {
       </div>
 
       {/* Overall Status */}
+      {LOCAL_OS_MODE && <div className="mb-6"><LocalOSPanel compact /></div>}
       <div className={`rounded-xl p-4 mb-6 ${
         allOk 
           ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
@@ -121,7 +127,7 @@ export default function HealthPage() {
             <div className={`font-semibold ${
               allOk ? 'text-green-700 dark:text-green-300' : anyFail ? 'text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-300'
             }`}>
-              {allOk ? '所有服务正常' : anyFail ? '部分服务异常' : '检测中...'}
+              {allOk ? (LOCAL_OS_MODE ? '本轮本地接口可访问' : '所有服务正常') : anyFail ? '部分服务异常' : '检测中...'}
             </div>
             {lastCheck && (
               <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -205,7 +211,7 @@ export default function HealthPage() {
           <div className="flex justify-between">
             <span className="text-slate-500 dark:text-slate-400">当前时间</span>
             <span className="text-slate-900 dark:text-white">
-              {new Date().toLocaleString('zh-CN')}
+              {lastCheck ? lastCheck.toLocaleString('zh-CN') : '等待检测'}
             </span>
           </div>
         </div>

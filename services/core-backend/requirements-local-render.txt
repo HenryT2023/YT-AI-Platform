@@ -1,0 +1,2 @@
+# Local, offline video compositor; FFmpeg/FFprobe and CJK fonts are host tools.
+Pillow==11.3.0

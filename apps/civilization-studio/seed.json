@@ -1,0 +1,11 @@
+{
+  "sources": [
+    {"id":"src-ihchina-three-carvings","title":"中国非物质文化遗产网：徽州三雕","url":"https://www.ihchina.cn/news_1_details/11243.html","source_kind":"public","scope":"徽州区域文化资料；不能据此认定严田具体对象或传承人身份","rights_scope":"internal","locator":"开篇定义与用途段"},
+    {"id":"src-project-direction","title":"严田模型建设方向：用户本次确认","url":"","source_kind":"project","scope":"本项目当前需求与工艺路线","rights_scope":"internal","locator":"2026-10-18用户确认"}
+  ],
+  "knowledge": [
+    {"id":"kn-three-carvings","title":"徽州三雕的范围","content":"中国非物质文化遗产网将徽州三雕概括为带有徽派风格的砖雕、石雕与木雕三类民间雕刻工艺。这是区域工艺概念，不能单凭这一资料判断某件严田器物的年代或归属。","source_id":"src-ihchina-three-carvings","locator":"开篇定义段","region_scope":"徽州区域","domain":"humanities","kind":"fact","review_status":"source_checked","rights_scope":"internal"},
+    {"id":"kn-carvings-use","title":"徽州雕刻的用途线索","content":"该资料介绍，徽州三雕用于建筑装饰，也见于家具及其他工艺物件。设计前应明确作品最终用途；具体严田对象仍需现场记录和来源核对。","source_id":"src-ihchina-three-carvings","locator":"开篇用途段","region_scope":"徽州区域","domain":"craft","kind":"fact","review_status":"source_checked","rights_scope":"internal"},
+    {"id":"kn-manual-direction","title":"严田首期采用传统手工木刻","content":"严田模型首期以传统手工木刻为主，机器尚未选定。软件先支持文化来源、带出处问答、可编辑稿样、工艺师审阅和反馈；机器接口保留关闭。","source_id":"src-project-direction","locator":"2026-10-18用户关于首期工艺路线及软件范围的确认","region_scope":"严田项目需求","domain":"project","kind":"requirement","review_status":"source_checked","rights_scope":"internal"}
+  ]
+}

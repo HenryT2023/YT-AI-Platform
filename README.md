@@ -27,6 +27,11 @@
 
 ## 技术栈
 
+本地单机版本已增加有出处的文化问答、原文选段、争议与缺失提示，以及传统木刻稿样的版本审阅。
+文化问答挂载在原 OS 的 `/studio/#qa`，与原知识接口共用一份文化库；当前采用本地检索摘录，未训练专属模型。
+本地房态观察、运营方案和人工经营台账保留各自的数据边界。资料原件、数据库与导入包不随源码分发。
+运行方法见[本地整合说明](docs/local-os-integration.md)、[文化问答说明](docs/local-culture-qa.md)及[本地工作交接](docs/local-handoff.md)。
+
 | 层级 | 技术选型 |
 |------|----------|
 | 后端语言 | Python 3.11+ |
@@ -118,6 +123,8 @@ docker-compose up -d
 
 ## 文档索引
 
+- [本地有出处文化问答](docs/local-culture-qa.md)
+- [本地工作交接与待核事项](docs/local-handoff.md)
 - [系统架构](docs/01_architecture.md)
 - [数据模型](docs/02_data_model.md)
 - [API 规范](docs/03_api_spec.md)

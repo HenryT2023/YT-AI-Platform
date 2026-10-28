@@ -55,6 +55,16 @@ class NPCService:
 
         调用 AI Orchestrator 服务处理对话
         """
+        if settings.LOCAL_OS_MODE:
+            from app.local_os.bridge import SITE, TENANT, assert_scope, get_service
+            local_context = context or {}
+            assert_scope(local_context.get("tenant_id", TENANT), local_context.get("site_id", SITE))
+            answer = await get_service().ask(message)
+            return {"content": answer["answer"], "npc_id": str(npc_id), "session_id": session_id,
+                    "sources": [citation["url"] or citation["source_title"] for citation in answer["citations"]],
+                    "citations": answer["citations"], "mode": "extractive", "model_connected": False,
+                    "status": answer["status"], "qa_id": answer["id"], "error": False,
+                    "limitations": answer["limitations"]}
         npc = await self.get_npc(npc_id)
         if not npc:
             raise ValueError(f"NPC not found: {npc_id}")
@@ -109,6 +119,8 @@ class NPCService:
         context: Optional[dict[str, Any]] = None,
     ) -> str:
         """获取 NPC 问候语"""
+        if settings.LOCAL_OS_MODE:
+            return "你好，我是严田本地资料导览演示角色。我会依据已登记知识提供出处；不能据此认定真实传承身份或个人经历。"
         npc = await self.get_npc(npc_id)
         if not npc:
             return "你好！"

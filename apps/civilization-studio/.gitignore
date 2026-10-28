@@ -1,0 +1,8 @@
+local-data/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+__pycache__/
+.pytest_cache/
+output/

@@ -123,6 +123,8 @@ class EmbeddingService:
         return results
 
     async def _call_embedding_api(self, texts: list[str]) -> list[list[float]]:
+        if settings.LOCAL_OS_MODE:
+            raise RuntimeError("本地统一模式禁用embedding外呼")
         """调用 Embedding API"""
         if self.config.provider == "openai":
             return await self._call_openai(texts)

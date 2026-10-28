@@ -28,6 +28,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+local-render = [
+    "Pillow==11.3.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",

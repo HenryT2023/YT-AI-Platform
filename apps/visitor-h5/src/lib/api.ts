@@ -4,7 +4,7 @@
  * 封装 ai-orchestrator 和 core-backend 的 API 调用
  */
 
-import { AI_ORCH_BASE, CORE_BASE, TENANT_ID, SITE_ID } from './config'
+import { AI_ORCH_BASE, CORE_BASE, TENANT_ID, SITE_ID, LOCAL_OS_MODE } from './config'
 
 // ============================================================
 // Types
@@ -15,7 +15,12 @@ export interface CitationItem {
   title?: string
   source_ref?: string
   excerpt?: string
-  confidence: number
+  confidence?: number
+  url?: string
+  locator?: string
+  region_scope?: string
+  knowledge_version?: number
+  review_status?: string
 }
 
 export type PolicyMode = 'normal' | 'conservative' | 'refuse'
@@ -30,6 +35,29 @@ export interface NPCChatResponse {
   npc_name?: string
   latency_ms?: number
   timestamp: string
+  retrieval_mode?: 'extractive'
+  evidence_status?: 'answered' | 'insufficient_evidence'
+}
+
+interface LocalAskResponse {
+  id: string
+  question: string
+  answer: string
+  status: 'answered' | 'insufficient_evidence'
+  mode: 'extractive'
+  model_connected: false
+  limitations: string[]
+  citations: Array<{
+    knowledge_id: string; knowledge_version: number; title: string
+    source_title: string; url?: string; locator: string; region_scope: string
+    review_status: string; excerpt: string
+  }>
+}
+
+function requestError(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map(item => item?.msg || '输入格式不正确').join('；')
+  return fallback
 }
 
 export interface NPCChatError {
@@ -58,6 +86,36 @@ export async function npcChat(
   query: string,
   sessionId: string,
 ): Promise<NPCChatResult> {
+  if (LOCAL_OS_MODE) {
+    try {
+      const response = await fetch('/api/local-os/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Yantian-Local': '1' },
+        body: JSON.stringify({ question: query }),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return { error: true, status: response.status, message: requestError(errorData.detail, '本地查证未完成，请保留问题并稍后重试。') }
+      }
+      const data: LocalAskResponse = await response.json()
+      return {
+        trace_id: data.id,
+        session_id: sessionId,
+        policy_mode: data.status === 'answered' ? 'normal' : 'conservative',
+        answer_text: data.answer + (data.limitations?.length ? `\n\n核验边界：\n${data.limitations.map(value => `· ${value}`).join('\n')}` : ''),
+        citations: data.citations.map(citation => ({
+          evidence_id: `${citation.knowledge_id}:v${citation.knowledge_version}`,
+          title: citation.title, source_ref: citation.source_title, excerpt: citation.excerpt,
+          url: citation.url, locator: citation.locator, region_scope: citation.region_scope,
+          knowledge_version: citation.knowledge_version, review_status: citation.review_status,
+        })),
+        followup_questions: [], timestamp: new Date().toISOString(),
+        retrieval_mode: 'extractive', evidence_status: data.status,
+      }
+    } catch {
+      return { error: true, message: '本地知识服务暂时不可用，未生成替代回答。请保留问题后重试。' }
+    }
+  }
   const url = `${AI_ORCH_BASE}/api/v1/npc/chat`
   
   const body = {
@@ -73,6 +131,7 @@ export async function npcChat(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(LOCAL_OS_MODE ? { 'X-Yantian-Local': '1' } : {}),
       },
       body: JSON.stringify(body),
     })
@@ -185,6 +244,7 @@ export async function submitFeedback(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(LOCAL_OS_MODE ? { 'X-Yantian-Local': '1' } : {}),
       },
       body: JSON.stringify(request),
     })
@@ -386,6 +446,7 @@ export async function submitQuest(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(LOCAL_OS_MODE ? { 'X-Yantian-Local': '1' } : {}),
       },
       body: JSON.stringify(body),
     })

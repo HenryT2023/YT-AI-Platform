@@ -4,8 +4,9 @@
  */
 
 // API 基础路径
-export const AI_ORCH_BASE = process.env.NEXT_PUBLIC_AI_ORCH_URL || 'http://localhost:8001'
-export const CORE_BASE = process.env.NEXT_PUBLIC_CORE_BACKEND_URL || 'http://localhost:8000'
+export const LOCAL_OS_MODE = process.env.NEXT_PUBLIC_LOCAL_OS_MODE === '1'
+export const AI_ORCH_BASE = LOCAL_OS_MODE ? '' : process.env.NEXT_PUBLIC_AI_ORCH_URL || 'http://localhost:8001'
+export const CORE_BASE = LOCAL_OS_MODE ? '' : process.env.NEXT_PUBLIC_CORE_BACKEND_URL || 'http://localhost:8000'
 
 // 租户和站点
 export const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID || 'yantian'

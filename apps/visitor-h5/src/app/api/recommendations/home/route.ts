@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_LOCAL_OS_MODE === '1'
+  ? process.env.YANTIAN_LOCAL_CORE_URL || 'http://127.0.0.1:8793'
+  : process.env.BACKEND_URL || 'http://localhost:8000';
 
 export async function GET() {
   try {
@@ -18,8 +22,8 @@ export async function GET() {
         recommended_quests: [],
         achievement_hints: [],
         topics: [],
-        greeting: '欢迎来到严田！',
-      });
+        greeting: '',
+      }, { status: 503 });
     }
 
     const data = await res.json();
@@ -31,7 +35,7 @@ export async function GET() {
       recommended_quests: [],
       achievement_hints: [],
       topics: [],
-      greeting: '欢迎来到严田！',
-    });
+      greeting: '',
+    }, { status: 503 });
   }
 }
